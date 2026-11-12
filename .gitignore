@@ -7,3 +7,4 @@ frontend/dist/
 # Lahman CSVs: the pipeline downloads them into .cache/ (see pipeline/README.md)
 data/
 .cache/
+.idea/
