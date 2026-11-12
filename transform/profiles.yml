@@ -1,0 +1,13 @@
+# Connection comes from the repo-root .env (exported by the Makefile).
+baseball:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | as_number }}"
+      user: "{{ env_var('POSTGRES_USER', 'bgpt') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'bgpt') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'baseball') }}"
+      schema: public
+      threads: 4

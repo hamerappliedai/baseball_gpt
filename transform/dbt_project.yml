@@ -1,0 +1,35 @@
+name: baseball
+version: "1.0.0"
+profile: baseball
+config-version: 2
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  baseball:
+    # Cleaned, typed, renamed copies of the raw tables. Views: they cost nothing
+    # to rebuild and always reflect the current raw load.
+    staging:
+      +schema: staging
+      +materialized: view
+    # The tables Claude queries. Column descriptions are written into Postgres
+    # as COMMENTs so the backend can build its schema prompt from the database.
+    marts:
+      +schema: marts
+      +materialized: table
+      +persist_docs:
+        relation: true
+        columns: true
+
+seeds:
+  baseball:
+    +schema: staging
+
+data_tests:
+  baseball:
+    +severity: error

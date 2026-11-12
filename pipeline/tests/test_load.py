@@ -56,6 +56,30 @@ def test_reload_is_idempotent_and_drops_stale_tables(release, db):
     assert tables == {"people", "batting", "_load_log"}
 
 
+def test_reload_keeps_dependent_views(release, db):
+    # dbt's staging views select from raw tables; a reload must not break them.
+    conn, schema = db
+    load.load("1999")
+    view = f'"{schema}".v_people'
+    conn.execute(f'CREATE VIEW {view} AS SELECT playerid FROM "{schema}".people')
+    load.load("1999")
+    assert len(q(conn, f"SELECT * FROM {view}")) == 3
+    conn.execute(f"DROP VIEW {view}")
+
+
+def test_reload_recreates_table_when_columns_change(release, db, monkeypatch):
+    conn, schema = db
+    load.load("1999")
+    conn.execute(f'ALTER TABLE "{schema}".people ADD COLUMN extra text')
+    conn.execute(f'CREATE VIEW "{schema}".v_extra AS SELECT extra FROM "{schema}".people')
+    load.load("1999")
+    cols = [c for (c,) in q(conn, "SELECT column_name FROM information_schema.columns WHERE "
+                                  "table_schema=%s AND table_name='people'", schema)]
+    assert "extra" not in cols
+    views = q(conn, "SELECT viewname FROM pg_views WHERE schemaname=%s", schema)
+    assert views == []  # dropped with the old table; dbt rebuilds real ones
+
+
 def test_failed_load_leaves_previous_data(release, db, monkeypatch):
     conn, schema = db
     load.load("1999")

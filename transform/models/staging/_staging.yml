@@ -1,0 +1,104 @@
+version: 2
+
+# Staging tests check the grain each model claims and that every foreign key
+# resolves. Marts depend on both.
+
+models:
+  - name: stg_people
+    columns:
+      - name: player_id
+        data_tests: [unique, not_null]
+      - name: name_last
+        data_tests: [not_null]
+
+  - name: stg_batting
+    data_tests:
+      - unique_combination: {arguments: {columns: [player_id, season, stint]}}
+    columns:
+      - name: player_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_people'), field: player_id}}
+      - name: league_id
+        data_tests:
+          - relationships: {arguments: {to: ref('seed_leagues'), field: league_id}}
+
+  - name: stg_pitching
+    data_tests:
+      - unique_combination: {arguments: {columns: [player_id, season, stint]}}
+    columns:
+      - name: player_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_people'), field: player_id}}
+
+  - name: stg_fielding
+    data_tests:
+      - unique_combination: {arguments: {columns: [player_id, season, stint, position]}}
+
+  - name: stg_appearances
+    data_tests:
+      - unique_combination: {arguments: {columns: [player_id, season, team_id]}}
+
+  - name: stg_teams
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, team_id]}}
+    columns:
+      - name: franchise_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_franchises'), field: franchise_id}}
+      - name: league_id
+        data_tests:
+          - relationships: {arguments: {to: ref('seed_leagues'), field: league_id}}
+
+  - name: stg_franchises
+    columns:
+      - name: franchise_id
+        data_tests: [unique, not_null]
+
+  - name: stg_parks
+    columns:
+      - name: park_id
+        data_tests: [unique, not_null]
+
+  - name: stg_home_games
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, team_id, park_id]}}
+    columns:
+      - name: park_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_parks'), field: park_id}}
+
+  - name: stg_series_post
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, round]}}
+    columns:
+      - name: round
+        data_tests:
+          - relationships: {arguments: {to: ref('seed_postseason_rounds'), field: round}}
+
+  - name: stg_managers
+    data_tests:
+      - unique_combination: {arguments: {columns: [manager_id, season, team_id, inseason]}}
+
+  - name: stg_salaries
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, team_id, player_id]}}
+
+  - name: stg_hall_of_fame
+    columns:
+      - name: person_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_people'), field: player_id}}
+
+  - name: stg_awards_players
+    columns:
+      - name: player_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_people'), field: player_id}}
+
+  - name: stg_batting_post
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, round, player_id, team_id]}}
+
+  - name: stg_pitching_post
+    data_tests:
+      - unique_combination: {arguments: {columns: [season, round, player_id, team_id]}}

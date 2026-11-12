@@ -7,7 +7,8 @@ backend can query.
 download → verify → load raw → transform (phase 2) → embed (phase 4)
 ```
 
-Phase 1, in this package, covers the first three stages.
+This package covers the first three stages. The transform stage is the dbt project
+in [`../transform`](../transform/README.md).
 
 ## Run it
 

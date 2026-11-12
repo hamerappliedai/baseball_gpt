@@ -8,6 +8,7 @@ baseball_gpt/
 ├── backend/            FastAPI app (app.py) — POST /api/chat streams Server-Sent Events
 ├── frontend/           Vue 3 + Vite app (src/App.vue, src/api.js)
 ├── pipeline/           Downloads, verifies and loads the Lahman database (see pipeline/README.md)
+├── transform/          dbt project: raw → staging → documented marts (see transform/README.md)
 ├── db/init/            Postgres init: pgvector extension and warehouse schemas
 └── docker-compose.yml  Postgres 17 + pgvector on host port 5432
 ```
@@ -22,7 +23,9 @@ pinned SHA-256 hashes. With Docker running:
 make build
 ```
 
-Details in [pipeline/README.md](pipeline/README.md).
+That downloads and verifies the release, loads it into `raw`, then builds and tests the
+`marts` tables with dbt. Details in [pipeline/README.md](pipeline/README.md) and
+[transform/README.md](transform/README.md).
 
 ## Setup
 

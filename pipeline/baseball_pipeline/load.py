@@ -9,6 +9,11 @@ bad cast can never lose data on the way in. The only changes made here:
 
 The whole load runs in one transaction: readers see the previous release
 until the new one commits, and a failure leaves the old tables untouched.
+
+Staging views (dbt) depend on these tables, so a table whose columns are
+unchanged is emptied with TRUNCATE and refilled, which keeps those views
+working. Only a table whose columns changed is dropped and recreated; that
+drops its dependent views too, and `make transform` rebuilds them.
 """
 
 from __future__ import annotations
@@ -47,12 +52,19 @@ def _load_table(cur: psycopg.Cursor, release: str, entry: FileEntry) -> int:
     cols = raw_columns(entry)
     col_ids = sql.SQL(", ").join(sql.Identifier(c) for c in cols)
 
-    cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(table))
-    cur.execute(
-        sql.SQL("CREATE TABLE {} ({})").format(
-            table, sql.SQL(", ").join(sql.SQL("{} text").format(sql.Identifier(c)) for c in cols)
+    existing = _existing_columns(cur, schema, entry.table)
+    if existing == cols:
+        cur.execute(sql.SQL("TRUNCATE {}").format(table))
+    else:
+        if existing is not None:
+            log.warning("raw.%s columns changed; recreating it (dependent views are dropped "
+                        "and rebuilt by `make transform`)", entry.table)
+            cur.execute(sql.SQL("DROP TABLE {} CASCADE").format(table))
+        cur.execute(
+            sql.SQL("CREATE TABLE {} ({})").format(
+                table, sql.SQL(", ").join(sql.SQL("{} text").format(sql.Identifier(c)) for c in cols)
+            )
         )
-    )
 
     data = (release_dir(release) / entry.name).read_bytes()
     if data.startswith(BOM):
@@ -81,6 +93,17 @@ def _load_table(cur: psycopg.Cursor, release: str, entry: FileEntry) -> int:
     return rows
 
 
+def _existing_columns(cur: psycopg.Cursor, schema: str, table: str) -> list[str] | None:
+    """Column names of an existing table in order, or None if it doesn't exist."""
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = %s AND table_name = %s ORDER BY ordinal_position",
+        (schema, table),
+    )
+    cols = [c for (c,) in cur.fetchall()]
+    return cols or None
+
+
 def _drop_stale_tables(cur: psycopg.Cursor, keep: set[str]) -> None:
     """Drop raw tables a previous release had but this one doesn't."""
     cur.execute(
@@ -88,8 +111,8 @@ def _drop_stale_tables(cur: psycopg.Cursor, keep: set[str]) -> None:
     )
     for (name,) in cur.fetchall():
         if name not in keep and name != LOAD_LOG:
-            log.info("dropping stale raw.%s", name)
-            cur.execute(sql.SQL("DROP TABLE {}").format(sql.Identifier(config.RAW_SCHEMA, name)))
+            log.warning("dropping stale raw.%s and any views built on it", name)
+            cur.execute(sql.SQL("DROP TABLE {} CASCADE").format(sql.Identifier(config.RAW_SCHEMA, name)))
 
 
 def _write_load_log(cur: psycopg.Cursor, manifest: Manifest, counts: dict[str, int]) -> None:
