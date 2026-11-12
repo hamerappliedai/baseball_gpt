@@ -115,6 +115,8 @@ async def test_request_shape():
     assert req["tools"][0]["name"] == "run_sql" and req["tools"][0]["eager_input_streaming"]
     assert req["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert "## players" in req["system"][0]["text"]
+    # Claude's own knowledge is allowed only in the labeled background blockquote.
+    assert f"begins with {agent.BACKGROUND_LABEL}" in req["system"][0]["text"]
     assert req["fallbacks"] == "default" and "server-side-fallback-2026-07-01" in req["betas"]
     assert "tool_choice" not in req
 

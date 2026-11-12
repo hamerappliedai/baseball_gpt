@@ -142,6 +142,12 @@ dbt data tests run as part of `make transform`.
    The front end reads the `fetch` body as a stream (`EventSource` can't POST), renders
    Markdown and sanitizes it with DOMPurify.
 
+5. **Background knowledge, labeled.** Every statistic must come from a query. Claude may
+   add short context the database can't hold, such as why something happened, events or
+   nicknames, from its own knowledge. That context goes only in one blockquote that
+   starts with "**Background (not from the database):**", and the UI styles it as a
+   separate callout.
+
 Other details:
 - Tool inputs stream eagerly (`eager_input_streaming`) and are validated before running.
 - Server-side refusal fallback (`fallbacks="default"`) is enabled.
