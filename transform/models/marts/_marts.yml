@@ -1,0 +1,1226 @@
+# Mart documentation and tests. Descriptions are persisted to Postgres as
+# COMMENTs (persist_docs), which is how Claude learns the schema.
+version: 2
+models:
+- name: players
+  description: 'One row per person: every player, plus managers, umpires and executives who appear only in manager
+    or Hall of Fame records. Start here to resolve a name to a player_id.'
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - unique
+    - not_null
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+    data_tests:
+    - not_null
+  - name: name_first
+    description: First name as commonly known (e.g. 'Babe'). NULL for some Negro Leagues players.
+  - name: name_last
+    description: Last name.
+    data_tests:
+    - not_null
+  - name: name_given
+    description: Full given name (e.g. 'George Herman').
+  - name: birth_date
+    description: Date of birth; NULL when any part is unknown.
+  - name: birth_year
+    description: Year of birth.
+  - name: birth_city
+    description: Birth city.
+  - name: birth_state
+    description: Birth state or province.
+  - name: birth_country
+    description: Birth country.
+  - name: death_date
+    description: Date of death; NULL if living or unknown.
+  - name: death_year
+    description: Year of death; NULL if living or unknown.
+  - name: death_city
+    description: Death city.
+  - name: death_state
+    description: Death state or province.
+  - name: death_country
+    description: Death country.
+  - name: bats
+    description: 'Batting hand: R, L or B (both).'
+  - name: throws
+    description: 'Throwing hand: R, L, or rarely S/B.'
+  - name: height_in
+    description: Height in inches.
+  - name: weight_lbs
+    description: Weight in pounds.
+  - name: debut_date
+    description: Date of first major league game.
+  - name: final_game_date
+    description: Date of last major league game.
+  - name: first_season
+    description: First season with a playing appearance; NULL for non-players.
+  - name: last_season
+    description: Last season with a playing appearance; NULL for non-players.
+  - name: seasons_played
+    description: Number of seasons with a playing appearance.
+  - name: games_played
+    description: Career games played (regular season).
+  - name: primary_position
+    description: 'Position with the most career games: P, C, 1B, 2B, 3B, SS, LF, CF, RF or DH.'
+  - name: teams
+    description: Team names played for, in the order the player joined them.
+  - name: played_negro_leagues
+    description: True if the player appeared for a Negro Leagues or Black independent club.
+  - name: is_player
+    description: True if the person has any playing appearance.
+  - name: is_manager
+    description: True if the person managed a team.
+  - name: is_hall_of_famer
+    description: True if inducted into the Hall of Fame (in any category).
+  - name: hof_induction_year
+    description: Year inducted into the Hall of Fame.
+  - name: hof_category
+    description: 'Hall of Fame induction category: Player, Manager, Executive, Pioneer/Executive or Umpire.'
+  - name: hof_voted_by
+    description: Body that elected the person (e.g. 'BBWAA', 'Veterans').
+  - name: bbref_id
+    description: Baseball-Reference player id.
+  - name: retro_id
+    description: Retrosheet player id.
+- name: leagues
+  description: Major leagues recognized by SABR, including the Negro Leagues (1920-1950) and Black independent clubs
+    (1891-1936), which are grouped into pseudo-leagues.
+  columns:
+  - name: league_id
+    description: League id used across all tables.
+    data_tests:
+    - unique
+    - not_null
+  - name: league_name
+    description: League name.
+  - name: is_negro_leagues
+    description: True for Negro Leagues and Black independent clubs.
+  - name: is_independent_clubs
+    description: True for the pseudo-leagues IND, EAS and WES, which group independent clubs rather than a real
+      league.
+  - name: first_season
+    description: First season.
+  - name: last_season
+    description: Last season; NULL if active.
+- name: franchises
+  description: 'One row per franchise: a club''s identity across relocations and renames (e.g. the Brooklyn and
+    Los Angeles Dodgers are franchise LAD).'
+  columns:
+  - name: franchise_id
+    description: Franchise id.
+    data_tests:
+    - unique
+    - not_null
+  - name: franchise_name
+    description: Franchise name.
+  - name: is_active
+    description: True for current MLB franchises.
+  - name: latest_team_name
+    description: Team name in the franchise's most recent season.
+  - name: first_season
+    description: "{{ doc('first_season') }}"
+  - name: last_season
+    description: "{{ doc('last_season') }}"
+  - name: seasons
+    description: Seasons played.
+  - name: w
+    description: Total wins.
+  - name: l
+    description: Total losses.
+  - name: win_pct
+    description: All-time winning percentage.
+  - name: pennants
+    description: League pennants won.
+  - name: world_series_titles
+    description: World Series titles won.
+  - name: team_names
+    description: All team names the franchise has used.
+- name: team_seasons
+  description: 'One row per team per season: record, standings, postseason results and team batting, pitching and
+    fielding totals.'
+  columns:
+  - name: season
+    description: "{{ doc('season') }}"
+    data_tests:
+    - not_null
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+    data_tests:
+    - not_null
+  - name: team_name
+    description: Team name that season (e.g. 'Brooklyn Dodgers').
+  - name: franchise_id
+    description: Franchise id. Use it to follow a club across relocations.
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('franchises')
+          field: franchise_id
+  - name: franchise_name
+    description: Current or final franchise name.
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: league_name
+    description: League name.
+  - name: division_id
+    description: 'Division: E, C or W. NULL before divisions (1969).'
+  - name: division_rank
+    description: Finish in the division, or in the league before 1969.
+  - name: g
+    description: Games played.
+  - name: g_home
+    description: Home games.
+  - name: w
+    description: Wins.
+  - name: l
+    description: Losses.
+  - name: win_pct
+    description: Winning percentage.
+  - name: r
+    description: Runs scored.
+  - name: ra
+    description: Runs allowed.
+  - name: run_diff
+    description: Run differential, R - RA.
+  - name: pythag_win_pct
+    description: Pythagorean expected win percentage from runs scored and allowed (exponent 1.83).
+  - name: won_division
+    description: Won the division. NULL before divisions.
+  - name: won_wild_card
+    description: Won a wild card. NULL before wild cards (1995).
+  - name: won_pennant
+    description: Won the league pennant.
+  - name: won_world_series
+    description: Won the World Series.
+  - name: ab
+    description: Team at bats.
+  - name: h
+    description: Team hits.
+  - name: doubles
+    description: Team doubles.
+  - name: triples
+    description: Team triples.
+  - name: hr
+    description: Team home runs.
+  - name: bb
+    description: Team walks.
+  - name: so
+    description: Team strikeouts (batting).
+  - name: sb
+    description: Team stolen bases.
+  - name: cs
+    description: Team caught stealing.
+  - name: hbp
+    description: Team hit by pitch.
+  - name: sf
+    description: Team sacrifice flies.
+  - name: avg
+    description: Team batting average.
+  - name: er
+    description: Earned runs allowed.
+  - name: era
+    description: Team ERA.
+  - name: cg
+    description: Complete games.
+  - name: sho
+    description: Shutouts.
+  - name: sv
+    description: Saves.
+  - name: ipouts
+    description: Outs recorded by the team's pitchers.
+  - name: ha
+    description: Hits allowed.
+  - name: hra
+    description: Home runs allowed.
+  - name: bba
+    description: Walks allowed.
+  - name: soa
+    description: Strikeouts by pitchers.
+  - name: e
+    description: Errors.
+  - name: dp
+    description: Double plays turned.
+  - name: fp
+    description: Fielding percentage.
+  - name: park_name
+    description: Home ballpark.
+  - name: attendance
+    description: Home attendance.
+  - name: batting_park_factor
+    description: Three-year park factor for batters (100 = neutral).
+  - name: pitching_park_factor
+    description: Three-year park factor for pitchers (100 = neutral).
+  - name: team_id_bbref
+    description: Baseball-Reference team id.
+  - name: team_id_retro
+    description: Retrosheet team id.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - season
+        - team_id
+- name: batting_seasons
+  description: Regular-season batting, one row per player per season with all stints combined (a player traded mid-season
+    is summed across teams and leagues). Use for 'how many X did P have in YEAR' and all-league single-season leaderboards.
+    For league leaders use batting_league_seasons.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - &id001
+      relationships:
+        arguments:
+          to: ref('players')
+          field: player_id
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: team_ids
+    description: "{{ doc('team_ids') }}"
+  - name: league_ids
+    description: "{{ doc('league_ids') }}"
+  - name: stints
+    description: "{{ doc('stints') }}"
+  - name: g
+    description: "{{ doc('b_g') }}"
+  - name: pa
+    description: "{{ doc('b_pa') }}"
+  - name: ab
+    description: "{{ doc('b_ab') }}"
+  - name: r
+    description: "{{ doc('b_r') }}"
+  - name: h
+    description: "{{ doc('b_h') }}"
+  - name: singles
+    description: "{{ doc('b_singles') }}"
+  - name: doubles
+    description: "{{ doc('b_doubles') }}"
+  - name: triples
+    description: "{{ doc('b_triples') }}"
+  - name: hr
+    description: "{{ doc('b_hr') }}"
+  - name: rbi
+    description: "{{ doc('b_rbi') }}"
+  - name: sb
+    description: "{{ doc('b_sb') }}"
+  - name: cs
+    description: "{{ doc('b_cs') }}"
+  - name: bb
+    description: "{{ doc('b_bb') }}"
+  - name: so
+    description: "{{ doc('b_so') }}"
+  - name: ibb
+    description: "{{ doc('b_ibb') }}"
+  - name: hbp
+    description: "{{ doc('b_hbp') }}"
+  - name: sh
+    description: "{{ doc('b_sh') }}"
+  - name: sf
+    description: "{{ doc('b_sf') }}"
+  - name: gidp
+    description: "{{ doc('b_gidp') }}"
+  - name: tb
+    description: "{{ doc('b_tb') }}"
+  - name: avg
+    description: "{{ doc('b_avg') }}"
+  - name: obp
+    description: "{{ doc('b_obp') }}"
+  - name: slg
+    description: "{{ doc('b_slg') }}"
+  - name: ops
+    description: "{{ doc('b_ops') }}"
+  - name: team_games
+    description: "{{ doc('team_games') }}"
+  - name: qualifies_batting_title
+    description: "{{ doc('qualifies_batting_title') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+- name: batting_league_seasons
+  description: Regular-season batting, one row per player, season and league (a player traded between leagues has
+    a row for each). Use for league leaders, e.g. 'AL home run leader in 1997'.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: team_ids
+    description: "{{ doc('team_ids') }}"
+  - name: stints
+    description: "{{ doc('stints') }}"
+  - name: g
+    description: "{{ doc('b_g') }}"
+  - name: pa
+    description: "{{ doc('b_pa') }}"
+  - name: ab
+    description: "{{ doc('b_ab') }}"
+  - name: r
+    description: "{{ doc('b_r') }}"
+  - name: h
+    description: "{{ doc('b_h') }}"
+  - name: singles
+    description: "{{ doc('b_singles') }}"
+  - name: doubles
+    description: "{{ doc('b_doubles') }}"
+  - name: triples
+    description: "{{ doc('b_triples') }}"
+  - name: hr
+    description: "{{ doc('b_hr') }}"
+  - name: rbi
+    description: "{{ doc('b_rbi') }}"
+  - name: sb
+    description: "{{ doc('b_sb') }}"
+  - name: cs
+    description: "{{ doc('b_cs') }}"
+  - name: bb
+    description: "{{ doc('b_bb') }}"
+  - name: so
+    description: "{{ doc('b_so') }}"
+  - name: ibb
+    description: "{{ doc('b_ibb') }}"
+  - name: hbp
+    description: "{{ doc('b_hbp') }}"
+  - name: sh
+    description: "{{ doc('b_sh') }}"
+  - name: sf
+    description: "{{ doc('b_sf') }}"
+  - name: gidp
+    description: "{{ doc('b_gidp') }}"
+  - name: tb
+    description: "{{ doc('b_tb') }}"
+  - name: avg
+    description: "{{ doc('b_avg') }}"
+  - name: obp
+    description: "{{ doc('b_obp') }}"
+  - name: slg
+    description: "{{ doc('b_slg') }}"
+  - name: ops
+    description: "{{ doc('b_ops') }}"
+  - name: team_games
+    description: "{{ doc('team_games') }}"
+  - name: qualifies_batting_title
+    description: "{{ doc('qualifies_batting_title') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+        - league_id
+- name: batting_careers
+  description: Regular-season career batting totals, one row per player.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: first_season
+    description: "{{ doc('first_season') }}"
+  - name: last_season
+    description: "{{ doc('last_season') }}"
+  - name: seasons
+    description: "{{ doc('seasons') }}"
+  - name: g
+    description: "{{ doc('b_g') }}"
+  - name: pa
+    description: "{{ doc('b_pa') }}"
+  - name: ab
+    description: "{{ doc('b_ab') }}"
+  - name: r
+    description: "{{ doc('b_r') }}"
+  - name: h
+    description: "{{ doc('b_h') }}"
+  - name: singles
+    description: "{{ doc('b_singles') }}"
+  - name: doubles
+    description: "{{ doc('b_doubles') }}"
+  - name: triples
+    description: "{{ doc('b_triples') }}"
+  - name: hr
+    description: "{{ doc('b_hr') }}"
+  - name: rbi
+    description: "{{ doc('b_rbi') }}"
+  - name: sb
+    description: "{{ doc('b_sb') }}"
+  - name: cs
+    description: "{{ doc('b_cs') }}"
+  - name: bb
+    description: "{{ doc('b_bb') }}"
+  - name: so
+    description: "{{ doc('b_so') }}"
+  - name: ibb
+    description: "{{ doc('b_ibb') }}"
+  - name: hbp
+    description: "{{ doc('b_hbp') }}"
+  - name: sh
+    description: "{{ doc('b_sh') }}"
+  - name: sf
+    description: "{{ doc('b_sf') }}"
+  - name: gidp
+    description: "{{ doc('b_gidp') }}"
+  - name: tb
+    description: "{{ doc('b_tb') }}"
+  - name: avg
+    description: "{{ doc('b_avg') }}"
+  - name: obp
+    description: "{{ doc('b_obp') }}"
+  - name: slg
+    description: "{{ doc('b_slg') }}"
+  - name: ops
+    description: "{{ doc('b_ops') }}"
+  - name: qualifies_career_leaders
+    description: True with at least 3,000 PA, the usual minimum for career rate-stat leaderboards (AVG, OBP, SLG,
+      OPS).
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+- name: pitching_seasons
+  description: Regular-season pitching, one row per pitcher per season with all stints combined. For league leaders
+    use pitching_league_seasons.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: team_ids
+    description: "{{ doc('team_ids') }}"
+  - name: league_ids
+    description: "{{ doc('league_ids') }}"
+  - name: stints
+    description: "{{ doc('stints') }}"
+  - name: w
+    description: "{{ doc('p_w') }}"
+  - name: l
+    description: "{{ doc('p_l') }}"
+  - name: win_pct
+    description: "{{ doc('p_win_pct') }}"
+  - name: g
+    description: "{{ doc('p_g') }}"
+  - name: gs
+    description: "{{ doc('p_gs') }}"
+  - name: cg
+    description: "{{ doc('p_cg') }}"
+  - name: sho
+    description: "{{ doc('p_sho') }}"
+  - name: sv
+    description: "{{ doc('p_sv') }}"
+  - name: gf
+    description: "{{ doc('p_gf') }}"
+  - name: ipouts
+    description: "{{ doc('p_ipouts') }}"
+  - name: ip
+    description: "{{ doc('p_ip') }}"
+  - name: ip_display
+    description: "{{ doc('p_ip_display') }}"
+  - name: h
+    description: "{{ doc('p_h') }}"
+  - name: r
+    description: "{{ doc('p_r') }}"
+  - name: er
+    description: "{{ doc('p_er') }}"
+  - name: hr
+    description: "{{ doc('p_hr') }}"
+  - name: bb
+    description: "{{ doc('p_bb') }}"
+  - name: ibb
+    description: "{{ doc('p_ibb') }}"
+  - name: so
+    description: "{{ doc('p_so') }}"
+  - name: hbp
+    description: "{{ doc('p_hbp') }}"
+  - name: wp
+    description: "{{ doc('p_wp') }}"
+  - name: bk
+    description: "{{ doc('p_bk') }}"
+  - name: bfp
+    description: "{{ doc('p_bfp') }}"
+  - name: era
+    description: "{{ doc('p_era') }}"
+  - name: whip
+    description: "{{ doc('p_whip') }}"
+  - name: h9
+    description: "{{ doc('p_h9') }}"
+  - name: hr9
+    description: "{{ doc('p_hr9') }}"
+  - name: bb9
+    description: "{{ doc('p_bb9') }}"
+  - name: so9
+    description: "{{ doc('p_so9') }}"
+  - name: so_bb
+    description: "{{ doc('p_so_bb') }}"
+  - name: team_games
+    description: "{{ doc('team_games') }}"
+  - name: qualifies_era_title
+    description: "{{ doc('qualifies_era_title') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+- name: pitching_league_seasons
+  description: Regular-season pitching, one row per pitcher, season and league. Use for league leaders, e.g. 'NL
+    ERA leader in 1968'.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: team_ids
+    description: "{{ doc('team_ids') }}"
+  - name: stints
+    description: "{{ doc('stints') }}"
+  - name: w
+    description: "{{ doc('p_w') }}"
+  - name: l
+    description: "{{ doc('p_l') }}"
+  - name: win_pct
+    description: "{{ doc('p_win_pct') }}"
+  - name: g
+    description: "{{ doc('p_g') }}"
+  - name: gs
+    description: "{{ doc('p_gs') }}"
+  - name: cg
+    description: "{{ doc('p_cg') }}"
+  - name: sho
+    description: "{{ doc('p_sho') }}"
+  - name: sv
+    description: "{{ doc('p_sv') }}"
+  - name: gf
+    description: "{{ doc('p_gf') }}"
+  - name: ipouts
+    description: "{{ doc('p_ipouts') }}"
+  - name: ip
+    description: "{{ doc('p_ip') }}"
+  - name: ip_display
+    description: "{{ doc('p_ip_display') }}"
+  - name: h
+    description: "{{ doc('p_h') }}"
+  - name: r
+    description: "{{ doc('p_r') }}"
+  - name: er
+    description: "{{ doc('p_er') }}"
+  - name: hr
+    description: "{{ doc('p_hr') }}"
+  - name: bb
+    description: "{{ doc('p_bb') }}"
+  - name: ibb
+    description: "{{ doc('p_ibb') }}"
+  - name: so
+    description: "{{ doc('p_so') }}"
+  - name: hbp
+    description: "{{ doc('p_hbp') }}"
+  - name: wp
+    description: "{{ doc('p_wp') }}"
+  - name: bk
+    description: "{{ doc('p_bk') }}"
+  - name: bfp
+    description: "{{ doc('p_bfp') }}"
+  - name: era
+    description: "{{ doc('p_era') }}"
+  - name: whip
+    description: "{{ doc('p_whip') }}"
+  - name: h9
+    description: "{{ doc('p_h9') }}"
+  - name: hr9
+    description: "{{ doc('p_hr9') }}"
+  - name: bb9
+    description: "{{ doc('p_bb9') }}"
+  - name: so9
+    description: "{{ doc('p_so9') }}"
+  - name: so_bb
+    description: "{{ doc('p_so_bb') }}"
+  - name: team_games
+    description: "{{ doc('team_games') }}"
+  - name: qualifies_era_title
+    description: "{{ doc('qualifies_era_title') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+        - league_id
+- name: pitching_careers
+  description: Regular-season career pitching totals, one row per pitcher.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: first_season
+    description: "{{ doc('first_season') }}"
+  - name: last_season
+    description: "{{ doc('last_season') }}"
+  - name: seasons
+    description: "{{ doc('seasons') }}"
+  - name: w
+    description: "{{ doc('p_w') }}"
+  - name: l
+    description: "{{ doc('p_l') }}"
+  - name: win_pct
+    description: "{{ doc('p_win_pct') }}"
+  - name: g
+    description: "{{ doc('p_g') }}"
+  - name: gs
+    description: "{{ doc('p_gs') }}"
+  - name: cg
+    description: "{{ doc('p_cg') }}"
+  - name: sho
+    description: "{{ doc('p_sho') }}"
+  - name: sv
+    description: "{{ doc('p_sv') }}"
+  - name: gf
+    description: "{{ doc('p_gf') }}"
+  - name: ipouts
+    description: "{{ doc('p_ipouts') }}"
+  - name: ip
+    description: "{{ doc('p_ip') }}"
+  - name: ip_display
+    description: "{{ doc('p_ip_display') }}"
+  - name: h
+    description: "{{ doc('p_h') }}"
+  - name: r
+    description: "{{ doc('p_r') }}"
+  - name: er
+    description: "{{ doc('p_er') }}"
+  - name: hr
+    description: "{{ doc('p_hr') }}"
+  - name: bb
+    description: "{{ doc('p_bb') }}"
+  - name: ibb
+    description: "{{ doc('p_ibb') }}"
+  - name: so
+    description: "{{ doc('p_so') }}"
+  - name: hbp
+    description: "{{ doc('p_hbp') }}"
+  - name: wp
+    description: "{{ doc('p_wp') }}"
+  - name: bk
+    description: "{{ doc('p_bk') }}"
+  - name: bfp
+    description: "{{ doc('p_bfp') }}"
+  - name: era
+    description: "{{ doc('p_era') }}"
+  - name: whip
+    description: "{{ doc('p_whip') }}"
+  - name: h9
+    description: "{{ doc('p_h9') }}"
+  - name: hr9
+    description: "{{ doc('p_hr9') }}"
+  - name: bb9
+    description: "{{ doc('p_bb9') }}"
+  - name: so9
+    description: "{{ doc('p_so9') }}"
+  - name: so_bb
+    description: "{{ doc('p_so_bb') }}"
+  - name: qualifies_career_leaders
+    description: True with at least 1,000 innings pitched, the usual minimum for career rate-stat leaderboards (ERA,
+      WHIP).
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+- name: fielding_seasons
+  description: Regular-season fielding, one row per player, season and position, stints combined.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: position
+    description: 'Position: P, C, 1B, 2B, 3B, SS or OF (all three outfield spots combined). PH and PR rows record
+      pinch-hitting and pinch-running games.'
+  - name: team_ids
+    description: "{{ doc('team_ids') }}"
+  - name: g
+    description: Games at the position.
+  - name: gs
+    description: Games started. NULL where not recorded.
+  - name: inn_outs
+    description: Outs played in the field. NULL where not recorded.
+  - name: innings
+    description: Innings played in the field, decimal.
+  - name: po
+    description: Putouts.
+  - name: a
+    description: Assists.
+  - name: e
+    description: Errors.
+  - name: dp
+    description: Double plays.
+  - name: pb
+    description: Passed balls (catchers).
+  - name: sb
+    description: Stolen bases allowed (catchers).
+  - name: cs
+    description: Runners caught stealing (catchers).
+  - name: fielding_pct
+    description: Fielding percentage, (PO + A) / (PO + A + E).
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+        - position
+- name: postseason_series
+  description: 'One row per postseason series: who won, who lost, and the result.'
+  columns:
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: round
+    description: "{{ doc('round') }}"
+  - name: round_name
+    description: "{{ doc('round_name') }}"
+  - name: stage
+    description: "{{ doc('stage') }}"
+  - name: stage_order
+    description: 'Stage order: 2 wild card, 3 division, 4 league championship, 5 World Series.'
+  - name: winner_team_id
+    description: Winning team id.
+  - name: winner_team_name
+    description: Winning team name.
+  - name: winner_franchise_id
+    description: Winning franchise id.
+  - name: winner_league_id
+    description: Winning team's league.
+  - name: loser_team_id
+    description: Losing team id.
+  - name: loser_team_name
+    description: Losing team name.
+  - name: loser_franchise_id
+    description: Losing franchise id.
+  - name: loser_league_id
+    description: Losing team's league.
+  - name: wins
+    description: Games won by the winner.
+  - name: losses
+    description: Games won by the loser.
+  - name: ties
+    description: Tied games.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - season
+        - round
+- name: postseason_batting
+  description: Postseason batting, one row per player, season, round and team.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: round
+    description: "{{ doc('round') }}"
+  - name: round_name
+    description: "{{ doc('round_name') }}"
+  - name: stage
+    description: "{{ doc('stage') }}"
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: g
+    description: "{{ doc('b_g') }}"
+  - name: pa
+    description: "{{ doc('b_pa') }}"
+  - name: ab
+    description: "{{ doc('b_ab') }}"
+  - name: r
+    description: "{{ doc('b_r') }}"
+  - name: h
+    description: "{{ doc('b_h') }}"
+  - name: singles
+    description: "{{ doc('b_singles') }}"
+  - name: doubles
+    description: "{{ doc('b_doubles') }}"
+  - name: triples
+    description: "{{ doc('b_triples') }}"
+  - name: hr
+    description: "{{ doc('b_hr') }}"
+  - name: rbi
+    description: "{{ doc('b_rbi') }}"
+  - name: sb
+    description: "{{ doc('b_sb') }}"
+  - name: cs
+    description: "{{ doc('b_cs') }}"
+  - name: bb
+    description: "{{ doc('b_bb') }}"
+  - name: so
+    description: "{{ doc('b_so') }}"
+  - name: ibb
+    description: "{{ doc('b_ibb') }}"
+  - name: hbp
+    description: "{{ doc('b_hbp') }}"
+  - name: sh
+    description: "{{ doc('b_sh') }}"
+  - name: sf
+    description: "{{ doc('b_sf') }}"
+  - name: gidp
+    description: "{{ doc('b_gidp') }}"
+  - name: tb
+    description: "{{ doc('b_tb') }}"
+  - name: avg
+    description: "{{ doc('b_avg') }}"
+  - name: obp
+    description: "{{ doc('b_obp') }}"
+  - name: slg
+    description: "{{ doc('b_slg') }}"
+  - name: ops
+    description: "{{ doc('b_ops') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+        - round
+        - team_id
+- name: postseason_pitching
+  description: Postseason pitching, one row per pitcher, season, round and team.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: round
+    description: "{{ doc('round') }}"
+  - name: round_name
+    description: "{{ doc('round_name') }}"
+  - name: stage
+    description: "{{ doc('stage') }}"
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: w
+    description: "{{ doc('p_w') }}"
+  - name: l
+    description: "{{ doc('p_l') }}"
+  - name: g
+    description: "{{ doc('p_g') }}"
+  - name: gs
+    description: "{{ doc('p_gs') }}"
+  - name: cg
+    description: "{{ doc('p_cg') }}"
+  - name: sho
+    description: "{{ doc('p_sho') }}"
+  - name: sv
+    description: "{{ doc('p_sv') }}"
+  - name: gf
+    description: "{{ doc('p_gf') }}"
+  - name: ipouts
+    description: "{{ doc('p_ipouts') }}"
+  - name: ip
+    description: "{{ doc('p_ip') }}"
+  - name: ip_display
+    description: "{{ doc('p_ip_display') }}"
+  - name: h
+    description: "{{ doc('p_h') }}"
+  - name: r
+    description: "{{ doc('p_r') }}"
+  - name: er
+    description: "{{ doc('p_er') }}"
+  - name: hr
+    description: "{{ doc('p_hr') }}"
+  - name: bb
+    description: "{{ doc('p_bb') }}"
+  - name: ibb
+    description: "{{ doc('p_ibb') }}"
+  - name: so
+    description: "{{ doc('p_so') }}"
+  - name: hbp
+    description: "{{ doc('p_hbp') }}"
+  - name: wp
+    description: "{{ doc('p_wp') }}"
+  - name: bk
+    description: "{{ doc('p_bk') }}"
+  - name: bfp
+    description: "{{ doc('p_bfp') }}"
+  - name: era
+    description: "{{ doc('p_era') }}"
+  - name: whip
+    description: "{{ doc('p_whip') }}"
+  - name: so9
+    description: "{{ doc('p_so9') }}"
+  - name: bb9
+    description: "{{ doc('p_bb9') }}"
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - season
+        - round
+        - team_id
+- name: awards
+  description: Awards won by players and managers (MVP, Cy Young, Gold Glove, Silver Slugger, Manager of the Year,
+    Triple Crown, ...). One row per award won.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: recipient_type
+    description: '''player'' or ''manager''.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - player
+          - manager
+  - name: award
+    description: Award name, e.g. 'Most Valuable Player', 'Cy Young Award', 'Rookie of the Year', 'Gold Glove',
+      'World Series MVP', 'Triple Crown'.
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: league_id
+    description: League the award was given in; 'ML' for awards across both major leagues.
+  - name: is_tie
+    description: True when the award was shared.
+  - name: notes
+    description: Extra detail, e.g. Gold Glove position or Player of the Week date.
+- name: award_voting
+  description: Voting results for MVP, Cy Young and Rookie of the Year, one row per player who received votes.
+  columns:
+  - name: award
+    description: '''Most Valuable Player'', ''Cy Young Award'' or ''Rookie of the Year''.'
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: league_id
+    description: League; 'ML' where one award covered both leagues (Cy Young 1956-66, Rookie of the Year 1947-48).
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: points_won
+    description: Voting points received.
+  - name: points_max
+    description: Maximum possible points.
+  - name: vote_share
+    description: points_won / points_max.
+  - name: first_place_votes
+    description: First-place votes.
+  - name: finish
+    description: Finishing place in the vote (1 = winner; ties share a place).
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - award
+        - season
+        - league_id
+        - player_id
+- name: hall_of_fame_voting
+  description: Hall of Fame ballots and selections, one row per person per year considered.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: category
+    description: Player, Manager, Executive, Pioneer/Executive, Pioneer or Umpire.
+  - name: voted_by
+    description: 'Electing body: ''BBWAA'', ''Veterans'', ''Negro League'', ''Special Election'', ...'
+  - name: ballots
+    description: Ballots cast. NULL for committee selections.
+  - name: votes
+    description: Votes received.
+  - name: votes_needed
+    description: Votes needed for induction (75%).
+  - name: vote_pct
+    description: votes / ballots.
+  - name: is_inducted
+    description: True if inducted that year.
+  - name: needed_note
+    description: Notes on unusual results.
+- name: all_star_selections
+  description: All-Star Game selections, one row per player per game.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: game_num
+    description: 0 for a single game; 1 or 2 in seasons with two All-Star Games (1959-62).
+  - name: game_id
+    description: Retrosheet game id. NULL for Negro Leagues all-star games.
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+  - name: league_id
+    description: AL or NL; Negro Leagues East-West and North-South squads use EAS, WES, NOS, SAS, NNS, NNN.
+  - name: played
+    description: True if the player appeared in the game.
+  - name: starting_position
+    description: Fielding position number if the player started (1 = P ... 9 = RF, 10 = DH). A few rows hold two
+      values separated by ';'.
+- name: manager_seasons
+  description: Managerial records, one row per manager, team and season (teams that changed managers mid-season
+    have several rows).
+  columns:
+  - name: manager_id
+    description: Person id of the manager; joins to players.player_id.
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('players')
+          field: player_id
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+  - name: team_name
+    description: Team name.
+  - name: franchise_id
+    description: Franchise id.
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: inseason
+    description: Order of managers for that team in the season (1 = first).
+  - name: g
+    description: Games managed.
+  - name: w
+    description: Wins.
+  - name: l
+    description: Losses.
+  - name: win_pct
+    description: Winning percentage.
+  - name: team_rank
+    description: Team's final standing.
+  - name: is_player_manager
+    description: True if also a player that season.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - manager_id
+        - season
+        - team_id
+        - inseason
+- name: salaries
+  description: Player salaries in nominal US dollars. Covers 1985-2016 only.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: season
+    description: "{{ doc('season') }}"
+  - name: team_id
+    description: "{{ doc('team_id') }}"
+  - name: league_id
+    description: "{{ doc('league_id') }}"
+  - name: salary_usd
+    description: Salary in nominal US dollars (not inflation adjusted).
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - season
+        - team_id
+        - player_id
+- name: player_colleges
+  description: Colleges players attended, one row per player and school.
+  columns:
+  - name: player_id
+    description: "{{ doc('player_id') }}"
+    data_tests:
+    - not_null
+    - *id001
+  - name: full_name
+    description: "{{ doc('full_name') }}"
+  - name: school_id
+    description: School id.
+  - name: school_name
+    description: School name.
+  - name: school_city
+    description: School city.
+  - name: school_state
+    description: School state.
+  - name: school_country
+    description: School country.
+  - name: first_season
+    description: First year played there.
+  - name: last_season
+    description: Last year played there.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - player_id
+        - school_id

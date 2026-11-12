@@ -1,0 +1,36 @@
+version: 2
+
+sources:
+  - name: lahman
+    description: >
+      SABR Lahman Baseball Database, loaded as-is by the pipeline's load step
+      (every column text, names lowercased, empty fields NULL). See
+      pipeline/README.md. FieldingOF, FieldingOFsplit, ManagersHalf and
+      TeamsHalf are loaded but not modelled yet.
+    schema: raw
+    tables:
+      - name: people
+      - name: batting
+      - name: pitching
+      - name: fielding
+      - name: appearances
+      - name: teams
+      - name: teamsfranchises
+      - name: parks
+      - name: homegames
+      - name: awardsplayers
+      - name: awardsshareplayers
+      - name: awardsmanagers
+      - name: awardssharemanagers
+      - name: halloffame
+      - name: allstarfull
+      - name: battingpost
+      - name: pitchingpost
+      - name: fieldingpost
+      - name: seriespost
+      - name: managers
+      - name: salaries
+      - name: collegeplaying
+      - name: schools
+      - name: _load_log
+        description: Which release, file and SHA-256 each raw table was loaded from.

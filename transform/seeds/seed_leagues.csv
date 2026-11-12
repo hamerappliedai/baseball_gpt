@@ -1,0 +1,20 @@
+league_id,league_name,is_negro_leagues,is_independent_clubs,first_season,last_season
+NA,National Association,false,false,1871,1875
+NL,National League,false,false,1876,
+AA,American Association,false,false,1882,1891
+UA,Union Association,false,false,1884,1884
+PL,Players League,false,false,1890,1890
+AL,American League,false,false,1901,
+FL,Federal League,false,false,1914,1915
+IND,Independent Clubs,true,true,1891,1936
+EAS,Eastern Independent Clubs,true,true,1903,1928
+WES,Western Independent Clubs,true,true,1902,1919
+NAC,National Association of Colored Professional Base Ball Clubs,true,false,1907,1908
+INT,International League of Independent Professional Base Ball Clubs,true,false,1909,1909
+NNL,Negro National League (I),true,false,1920,1931
+ECL,Eastern Colored League,true,false,1923,1928
+ANL,American Negro League,true,false,1929,1929
+EWL,East-West League,true,false,1932,1932
+NSL,Negro Southern League,true,false,1932,1932
+NN2,Negro National League (II),true,false,1933,1948
+NAL,Negro American League,true,false,1937,1950

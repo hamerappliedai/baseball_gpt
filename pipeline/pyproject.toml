@@ -1,0 +1,22 @@
+[project]
+name = "baseball-pipeline"
+version = "0.1.0"
+description = "Download, verify and load the SABR Lahman database into Postgres"
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "python-dotenv>=1.2.4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[project.scripts]
+bgpt-pipeline = "baseball_pipeline.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

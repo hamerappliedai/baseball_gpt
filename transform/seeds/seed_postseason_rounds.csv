@@ -1,0 +1,30 @@
+round,round_name,stage,stage_order
+WS,World Series,World Series,5
+CS,Championship Series (1892 NL split season),World Series,5
+NWS,Negro World Series,World Series,5
+NNC,Negro National League Championship,League Championship,4
+NSC,Negro Southern League Championship,League Championship,4
+NLC,Negro National League (II) Championship,League Championship,4
+ALC,Negro American League Championship,League Championship,4
+NLP1,Negro National League (II) Playoff 1,League Championship,4
+NLP2,Negro National League (II) Playoff 2,League Championship,4
+ALCS,American League Championship Series,League Championship,4
+NLCS,National League Championship Series,League Championship,4
+AEDIV,American League East Division Series (1981 split season),Division Series,3
+AWDIV,American League West Division Series (1981 split season),Division Series,3
+NEDIV,National League East Division Series (1981 split season),Division Series,3
+NWDIV,National League West Division Series (1981 split season),Division Series,3
+ALDS1,American League Division Series 1,Division Series,3
+ALDS2,American League Division Series 2,Division Series,3
+NLDS1,National League Division Series 1,Division Series,3
+NLDS2,National League Division Series 2,Division Series,3
+ALWC,American League Wild Card Game,Wild Card,2
+NLWC,National League Wild Card Game,Wild Card,2
+ALWC1,American League Wild Card Series 1,Wild Card,2
+ALWC2,American League Wild Card Series 2,Wild Card,2
+ALWC3,American League Wild Card Series 3,Wild Card,2
+ALWC4,American League Wild Card Series 4,Wild Card,2
+NLWC1,National League Wild Card Series 1,Wild Card,2
+NLWC2,National League Wild Card Series 2,Wild Card,2
+NLWC3,National League Wild Card Series 3,Wild Card,2
+NLWC4,National League Wild Card Series 4,Wild Card,2
