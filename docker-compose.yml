@@ -1,0 +1,24 @@
+# Postgres 17 with the pgvector extension, for the baseball_gpt warehouse.
+#   docker compose up -d
+# Listens on host port 5432 (override with POSTGRES_PORT).
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: baseball_gpt_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bgpt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bgpt}
+      POSTGRES_DB: ${POSTGRES_DB:-baseball}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

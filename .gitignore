@@ -3,3 +3,7 @@ __pycache__/
 node_modules/
 frontend/dist/
 .env
+.DS_Store
+# Lahman CSVs: the pipeline downloads them into .cache/ (see pipeline/README.md)
+data/
+.cache/
