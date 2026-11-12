@@ -4,11 +4,19 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { streamChat } from './api'
 
-const messages = ref([]) // [{ role, content, error? }]
+// [{ role, content, error?, queries?: [{ id, purpose, sql, status, rows?, truncated?, error? }] }]
+const messages = ref([])
 const question = ref('')
 const streaming = ref(false)
 const logEl = ref(null)
 let controller = null
+
+const examples = [
+  'Who hit the most home runs in a single season?',
+  'Compare Ted Williams and Joe DiMaggio in 1941.',
+  'Which franchises have won the most World Series?',
+  "What were Josh Gibson's best seasons?",
+]
 
 const render = (text) => DOMPurify.sanitize(marked.parse(text))
 
@@ -17,18 +25,23 @@ async function scrollToBottom() {
   if (logEl.value) logEl.value.scrollTop = logEl.value.scrollHeight
 }
 
-async function ask() {
-  const text = question.value.trim()
+function queryLabel(q) {
+  if (q.status === 'running') return 'running…'
+  if (q.error) return 'failed'
+  return `${q.rows} row${q.rows === 1 ? '' : 's'}${q.truncated ? '+' : ''}`
+}
+
+async function ask(text = question.value.trim()) {
   if (!text || streaming.value) return
 
-  // History sent to the API: only successful turns.
+  // History sent to the API: only successful turns, as plain text.
   const history = messages.value
     .filter((m) => !m.error && m.content)
     .map(({ role, content }) => ({ role, content }))
   history.push({ role: 'user', content: text })
 
   messages.value.push({ role: 'user', content: text })
-  messages.value.push({ role: 'assistant', content: '' })
+  messages.value.push({ role: 'assistant', content: '', queries: [] })
   const reply = messages.value[messages.value.length - 1]
   question.value = ''
   streaming.value = true
@@ -40,7 +53,12 @@ async function ask() {
       history,
       (event) => {
         if (event.type === 'text') reply.content += event.text
-        else if (event.type === 'error') reply.error = event.message
+        else if (event.type === 'query') {
+          reply.queries.push({ id: event.id, purpose: event.purpose, sql: event.sql, status: 'running' })
+        } else if (event.type === 'query_result') {
+          const q = reply.queries.find((x) => x.id === event.id)
+          if (q) Object.assign(q, { status: 'done', rows: event.rows, truncated: event.truncated, error: event.error })
+        } else if (event.type === 'error') reply.error = event.message
         scrollToBottom()
       },
       controller.signal,
@@ -73,27 +91,48 @@ function onKeydown(e) {
 <template>
   <main class="chat">
     <header>
-      <h1>Claude Chat Agent</h1>
+      <h1>⚾ Baseball GPT</h1>
       <button class="link" :disabled="streaming || !messages.length" @click="clearChat">New chat</button>
     </header>
 
     <section ref="logEl" class="log">
-      <p v-if="!messages.length" class="empty">Ask a question to get started.</p>
+      <div v-if="!messages.length" class="empty">
+        <p>Ask about 150 years of major league baseball, Negro Leagues included.<br />Answers come from SQL over the SABR Lahman database.</p>
+        <div class="examples">
+          <button v-for="ex in examples" :key="ex" class="example" @click="ask(ex)">{{ ex }}</button>
+        </div>
+      </div>
       <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
         <div v-if="m.role === 'user'" class="bubble">{{ m.content }}</div>
         <div v-else class="bubble">
+          <details v-if="m.queries?.length" class="queries">
+            <summary>
+              {{ m.queries.length }} quer{{ m.queries.length === 1 ? 'y' : 'ies' }}
+              <span v-if="m.queries.some((q) => q.status === 'running')" class="typing">running…</span>
+            </summary>
+            <div v-for="q in m.queries" :key="q.id" class="query">
+              <div class="query-head">
+                <span>{{ q.purpose || 'Query' }}</span>
+                <span :class="['badge', { failed: q.error }]">{{ queryLabel(q) }}</span>
+              </div>
+              <pre><code>{{ q.sql }}</code></pre>
+              <p v-if="q.error" class="error">{{ q.error }}</p>
+            </div>
+          </details>
           <div v-if="m.content" class="md" v-html="render(m.content)"></div>
-          <span v-else-if="streaming && i === messages.length - 1" class="typing">Thinking…</span>
+          <span v-else-if="streaming && i === messages.length - 1" class="typing">
+            {{ m.queries?.length ? 'Querying the database…' : 'Thinking…' }}
+          </span>
           <p v-if="m.error" class="error">{{ m.error }}</p>
         </div>
       </div>
     </section>
 
-    <form class="composer" @submit.prevent="ask">
+    <form class="composer" @submit.prevent="ask()">
       <textarea
         v-model="question"
         rows="3"
-        placeholder="Ask Claude anything… (Enter to send, Shift+Enter for a new line)"
+        placeholder="Ask a baseball question… (Enter to send, Shift+Enter for a new line)"
         :disabled="streaming"
         @keydown="onKeydown"
       ></textarea>
