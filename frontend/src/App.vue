@@ -10,6 +10,7 @@ import PlayerSearch from './components/PlayerSearch.vue'
       <PlayerSearch />
       <nav>
         <RouterLink to="/leaders">Leaders</RouterLink>
+        <RouterLink to="/standings">Standings</RouterLink>
         <RouterLink to="/ask">Ask AI</RouterLink>
       </nav>
     </header>
