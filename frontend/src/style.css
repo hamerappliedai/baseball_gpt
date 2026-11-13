@@ -286,3 +286,47 @@ table.data tfoot td { font-weight: 700; border-top: 2px solid #e3e5e8; backgroun
 @media (max-width: 640px) {
   .player-links { flex-direction: row; align-items: flex-start; gap: 12px; }
 }
+
+/* Standings */
+.season-picker { display: flex; align-items: center; gap: 6px; }
+.season-picker select { font: inherit; padding: 6px 8px; border: 1px solid #d0d4d9; border-radius: 8px; background: #fff; }
+.season-picker button { padding: 6px 12px; font-size: 1.1em; line-height: 1; }
+.champion {
+  margin: 0;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #e3e5e8;
+  border-left: 4px solid #d97757;
+  border-radius: 10px;
+}
+.standings .league { display: flex; flex-direction: column; gap: 8px; transition: opacity 0.15s; }
+.standings .league.stale { opacity: 0.5; }
+.standings h2 { font-size: 1.05rem; margin: 8px 0 0; }
+.standings h3 { font-size: 0.9rem; margin: 0 0 4px; color: #57606a; }
+.divisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.standings table.data th, .standings table.data td { padding: 5px 8px; }
+.division { min-width: 0; }
+table.data td.pos { color: #1a7f37; }
+table.data td.neg { color: #b42318; }
+.tag.ws { background: #1f2328; color: #fff; }
+.tag.pen { background: #fbe7df; color: #b2532f; }
+.standings td.name .tag { margin-left: 4px; }
+.bracket { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.stage { display: flex; flex-direction: column; gap: 8px; min-width: 210px; flex: 1; }
+.series {
+  background: #fff;
+  border: 1px solid #e3e5e8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.88em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.series-name { color: #8b949e; font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.series .winner, .series .loser { display: flex; justify-content: space-between; gap: 8px; }
+.series .winner { font-weight: 700; }
+.series .loser { color: #57606a; }
+@media (max-width: 640px) {
+  .divisions { grid-template-columns: 1fr; }
+}

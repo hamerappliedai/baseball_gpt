@@ -1,6 +1,6 @@
 # Plan: a no-LLM browse mode
 
-Status: approved; milestones 1 (Browse API + Leaders page) and 2 (player search + player pages) done. Decisions (2026-11-12):
+Status: approved; milestones 1 (Browse API + Leaders page), 2 (player search + player pages) and 3 (standings) done. Decisions (2026-11-12):
 
 - **Stats:** only what Lahman provides. Derived stats are computed from Lahman columns;
   nothing else is added (no WAR).
