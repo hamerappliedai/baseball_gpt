@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "baseball-gpt",
+      "runtimeExecutable": "backend/.venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "--app-dir", "backend", "app:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

@@ -30,6 +30,38 @@ h1 { font-size: 1.25rem; margin: 0; }
   gap: 12px;
 }
 .empty { color: #8b949e; text-align: center; margin: auto; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+button.example {
+  background: #fff;
+  color: #1f2328;
+  border: 1px solid #d0d4d9;
+  padding: 8px 12px;
+  font-size: 0.9em;
+}
+button.example:hover { border-color: #d97757; }
+
+.queries { margin-bottom: 8px; font-size: 0.85em; }
+.queries summary { cursor: pointer; color: #57606a; }
+.query { margin-top: 8px; }
+.query-head { display: flex; justify-content: space-between; gap: 8px; color: #57606a; }
+.query pre { margin: 4px 0 0; padding: 8px; background: #24292f; color: #f6f8fa; border-radius: 6px; overflow-x: auto; }
+.badge { white-space: nowrap; }
+.badge.failed { color: #b42318; }
+.md table { border-collapse: collapse; margin: 8px 0; font-size: 0.92em; }
+.md th, .md td { border: 1px solid #d0d4d9; padding: 4px 8px; text-align: left; }
+.md th { background: #e8eaed; }
+/* Claude's own background knowledge, kept apart from database-backed answers. */
+.md blockquote {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid #8b949e;
+  background: #fff;
+  border-radius: 0 6px 6px 0;
+  color: #57606a;
+  font-size: 0.92em;
+}
+.md blockquote > :first-child { margin-top: 0; }
+.md blockquote > :last-child { margin-bottom: 0; }
 
 .msg { display: flex; }
 .msg.user { justify-content: flex-end; }

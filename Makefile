@@ -6,10 +6,17 @@ RELEASE ?= 2025
 PIPELINE = cd pipeline && uv run bgpt-pipeline
 DBT = cd transform && uv run dbt
 
-.PHONY: db-up db-down db-shell build ingest fetch verify load transform docs test
+.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform docs test backend-test
 
-db-up:            ## start Postgres + pgvector (host port 5432) and wait until healthy
+db-up:            ## start Postgres + pgvector (host port 5432), wait until healthy, apply roles
 	docker compose up -d --wait
+	$(MAKE) --no-print-directory db-roles
+
+db-roles:         ## create/update the backend's read-only role (idempotent)
+	@test -n "$(READER_PASSWORD)" || (echo "Set READER_PASSWORD in .env (see .env.example)"; exit 1)
+	@echo "applying db/roles.sql"
+	@docker compose exec -T db psql -q -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) \
+		-v reader_password='$(READER_PASSWORD)' -f - < db/roles.sql
 
 db-down:
 	docker compose down
@@ -39,3 +46,6 @@ docs:             ## generate and serve dbt docs (lineage graph) on :8080
 
 test:             ## pipeline unit/integration tests (dbt data tests run in `make transform`)
 	cd pipeline && uv run pytest -q
+
+backend-test:     ## backend tests (SQL tool against the running DB, agent loop with a fake Claude)
+	cd backend && .venv/bin/python -m pytest -q
