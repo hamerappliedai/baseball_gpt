@@ -35,12 +35,18 @@ MAX_LIMIT = 100
 _cache: OrderedDict[tuple, Any] = OrderedDict()
 
 
-async def _cached(key: tuple, build: Callable[[], Awaitable[Any]]) -> Any:
-    """A bounded LRU cache of built responses, keyed on validated parameters."""
+async def cached(key: tuple, build: Callable[[], Awaitable[Any]]) -> Any:
+    """A bounded LRU cache of built responses, keyed on validated parameters.
+
+    None (e.g. an unknown player) is never cached, so random lookups can't
+    push real pages out of the cache.
+    """
     if key in _cache:
         _cache.move_to_end(key)
         return _cache[key]
     value = await build()
+    if value is None:
+        return None
     _cache[key] = value
     if len(_cache) > CACHE_ENTRIES:
         _cache.popitem(last=False)
@@ -51,7 +57,7 @@ def clear_cache() -> None:
     _cache.clear()
 
 
-def _json(request: Request, payload: Any) -> Response:
+def json_response(request: Request, payload: Any) -> Response:
     """JSON with an ETag; answers 304 when the client already has this body."""
     body = json.dumps(jsonable_encoder(payload), separators=(",", ":")).encode()
     etag = '"' + hashlib.sha256(body).hexdigest()[:20] + '"'
@@ -83,13 +89,13 @@ async def _build_meta() -> dict:
 
 
 async def get_meta() -> dict:
-    return await _cached(("meta",), _build_meta)
+    return await cached(("meta",), _build_meta)
 
 
 @router.get("/meta")
 async def meta(request: Request) -> Response:
     """Everything the browse pages need for their dropdowns."""
-    return _json(request, await get_meta())
+    return json_response(request, await get_meta())
 
 
 # --- /api/leaderboard ----------------------------------------------------------
@@ -142,9 +148,9 @@ async def leaderboard(
     is_qualified = True if s.rate else bool(qualified)
 
     key = ("leaderboard", category, s.key, scope, lo, hi, league, is_qualified, limit, offset)
-    payload = await _cached(key, lambda: _build_leaderboard(
+    payload = await cached(key, lambda: _build_leaderboard(
         category, s, scope, lo, hi, league, league_ids, is_qualified, limit, offset, meta))
-    return _json(request, payload)
+    return json_response(request, payload)
 
 
 async def _build_leaderboard(category, s, scope, lo, hi, league, league_ids, is_qualified,

@@ -1,11 +1,13 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import PlayerSearch from './components/PlayerSearch.vue'
 </script>
 
 <template>
   <div class="shell">
     <header class="topbar">
       <RouterLink to="/" class="brand">⚾ Baseball GPT</RouterLink>
+      <PlayerSearch />
       <nav>
         <RouterLink to="/leaders">Leaders</RouterLink>
         <RouterLink to="/ask">Ask AI</RouterLink>

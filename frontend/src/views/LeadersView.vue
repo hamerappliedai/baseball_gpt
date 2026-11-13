@@ -2,7 +2,7 @@
 // Leaderboard builder. Every filter lives in the URL query string, so any view
 // can be shared as a link; the route is the single source of truth.
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getJSON } from '../api'
 import { formatValue, isNumeric } from '../format'
 
@@ -250,6 +250,7 @@ const title = computed(() => {
               <td v-for="c in board.columns" :key="c.key"
                   :class="{ num: isNumeric(c.format) || c.key === 'rank', hl: c.highlight, name: c.format === 'player' }">
                 <template v-if="c.key === 'rank'">{{ showRank(i) ? r.rank : '' }}</template>
+                <RouterLink v-else-if="c.format === 'player'" :to="`/players/${r.player_id}`">{{ r.full_name }}</RouterLink>
                 <template v-else>{{ formatValue(r[c.key], c.format) }}</template>
               </td>
             </tr>

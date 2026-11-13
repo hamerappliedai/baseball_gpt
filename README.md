@@ -1,10 +1,12 @@
 # Baseball GPT
 
 Explore 150 years of major league baseball, Negro Leagues included, from the SABR
-Lahman database. The site has two modes over the same documented Postgres marts:
+Lahman database. Everything reads the same documented Postgres marts:
 
 - **Leaders** (`/leaders`): leaderboards served straight from SQL. No AI, so no token
   cost per visit.
+- **Players** (`/players/{id}`, plus a search box in the header): every player's seasons,
+  career totals, fielding, postseason and honors. Also no AI.
 - **Ask AI** (`/ask`): Claude writes and runs read-only queries, then answers from the
   results. Each question spends Claude API tokens.
 
@@ -13,9 +15,9 @@ in [docs/browse-plan.md](docs/browse-plan.md).
 
 ```
 baseball_gpt/
-├── backend/            FastAPI app: browse API (browse.py, stats.py), Claude tool-use loop (agent.py),
+├── backend/            FastAPI app: browse API (browse.py, stats.py, players.py), Claude tool-use loop (agent.py),
 │                       database access (db.py), schema prompt (schema.py)
-├── frontend/           Vue 3 + Vite app: views/LeadersView.vue, views/AskView.vue, src/api.js
+├── frontend/           Vue 3 + Vite app: views/ (Leaders, Player, Ask), components/ (PlayerSearch, StatTable)
 ├── pipeline/           Downloads, verifies and loads the Lahman database (see pipeline/README.md)
 ├── transform/          dbt project: raw → staging → documented marts (see transform/README.md)
 ├── db/init/            Postgres init: pgvector extension and warehouse schemas
@@ -122,6 +124,8 @@ dbt data tests run as part of `make transform`.
 |---|---|
 | `GET /api/meta` | season range, leagues, era presets and the stat catalogue, for the dropdowns |
 | `GET /api/leaderboard` | a ranked leaderboard; ties share a rank |
+| `GET /api/players?q=...` | player search, best match first: exact name, then prefix, then anywhere, then given name; ties go to the player with more games |
+| `GET /api/players/{player_id}` | one player page: bio, season and career batting and pitching, fielding by position, postseason, awards, All-Star selections, top-5 award finishes, Hall of Fame voting |
 
 `/api/leaderboard` takes these parameters:
 - `category` (`batting`/`pitching`)
