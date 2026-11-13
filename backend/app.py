@@ -29,8 +29,10 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
 import agent  # noqa: E402
+import browse  # noqa: E402
 import db  # noqa: E402
 from schema import schema_prompt  # noqa: E402
 
@@ -48,6 +50,7 @@ async def lifespan(_: FastAPI):
 # Reads ANTHROPIC_API_KEY from the environment (populated from .env above).
 client = anthropic.AsyncAnthropic()
 app = FastAPI(title="Baseball GPT", lifespan=lifespan)
+app.include_router(browse.router)  # token-free browse API: /api/meta, /api/leaderboard
 
 
 class Message(BaseModel):
@@ -99,9 +102,22 @@ async def health():
     return {"status": "ok", "model": agent.MODEL, "database": database}
 
 
+class SPAStaticFiles(StaticFiles):
+    """Static files, falling back to index.html so client-side routes like
+    /leaders load the app. Unknown /api paths still 404."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as e:
+            if e.status_code != 404 or path == "api" or path.startswith("api/"):
+                raise
+            return await super().get_response("index.html", scope)
+
+
 # Serve the built Vue app (npm run build) when it exists; in dev, Vite serves it.
 if FRONTEND_DIST.exists():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+    app.mount("/", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 
 
 if __name__ == "__main__":

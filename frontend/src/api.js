@@ -33,3 +33,20 @@ export async function streamChat(messages, onEvent, signal) {
     }
   }
 }
+
+/** GET a browse endpoint; drops empty params. Throws with the API's message on errors. */
+export async function getJSON(path, params = {}, signal) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  )
+  const res = await fetch(qs.size ? `${path}?${qs}` : path, { signal })
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`
+    try {
+      const body = await res.json()
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch {}
+    throw new Error(detail)
+  }
+  return res.json()
+}

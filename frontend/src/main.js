@@ -1,5 +1,22 @@
 import { createApp } from 'vue'
+import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
+import LeadersView from './views/LeadersView.vue'
+import AskView from './views/AskView.vue'
 import './style.css'
 
-createApp(App).mount('#app')
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', redirect: '/leaders' },
+    { path: '/leaders', component: LeadersView, meta: { title: 'Leaders' } },
+    { path: '/ask', component: AskView, meta: { title: 'Ask AI' } },
+    { path: '/:pathMatch(.*)*', redirect: '/leaders' },
+  ],
+})
+
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} · Baseball GPT` : 'Baseball GPT'
+})
+
+createApp(App).use(router).mount('#app')

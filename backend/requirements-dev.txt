@@ -1,2 +1,3 @@
 -r requirements.txt
 pytest>=8
+httpx2  # ASGI test client (already a dependency of anthropic)
