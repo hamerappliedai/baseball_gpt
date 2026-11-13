@@ -116,6 +116,8 @@ make backend-test
 `make test` runs the pipeline tests. `make backend-test` runs the backend tests:
 - the SQL tool and the browse API run against the live database (these are skipped if
   it isn't running). The browse tests check known records and reject bad parameters;
+- the hybrid search tests check nicknames, misspellings and junk input (skipped until
+  `make embed` has run);
 - the tool-use loop runs against a scripted fake Claude client, so no API calls are made.
 
 dbt data tests run as part of `make transform`.
@@ -126,7 +128,7 @@ dbt data tests run as part of `make transform`.
 |---|---|
 | `GET /api/meta` | season range, leagues, era presets and the stat catalogue, for the dropdowns |
 | `GET /api/leaderboard` | a ranked leaderboard; ties share a rank |
-| `GET /api/players?q=...` | player search, best match first: exact name, then prefix, then anywhere, then given name; ties go to the player with more games |
+| `GET /api/players?q=...` | player search by name, nickname or misspelling (see Player search below); each result says how it matched (`match`, `matched_alias`) and the response says which `mode` ran (`hybrid` or `sql`) |
 | `GET /api/players/{player_id}` | one player page: bio, season and career batting and pitching, fielding by position, postseason, awards, All-Star selections, top-5 award finishes, Hall of Fame voting |
 | `GET /api/standings/{season}` | final standings by league and division (W, L, PCT, GB, runs, run differential, Pythagorean record, division/wild-card/pennant/World Series flags), plus that season's postseason series by stage |
 
@@ -151,6 +153,43 @@ How it stays safe and fast:
   can reuse them.
 
 The UI keeps every filter in the URL, so any leaderboard can be shared as a link.
+
+## Player search (phase 4)
+
+The search box understands nicknames ("iron horse"), misspellings ("mickey mantel")
+and names without accents ("acuna"), with no AI calls. `make embed` (part of
+`make build`) builds `vectors.player_aliases`: every name a player goes by, each
+embedded with the pretrained `sentence-transformers/all-MiniLM-L6-v2` model
+(384 dims) under an HNSW cosine index, plus a trigram index.
+
+- **Aliases:** the Lahman full name, given names + last name, unaccented forms, and
+  about 200 curated nicknames and suffix forms ("The Iron Horse", "Ken Griffey Jr.")
+  in the dbt seed `transform/seeds/seed_player_nicknames.csv`. dbt tests check that
+  every row points at a real player under the right name.
+- **Ranking:** exact and prefix name matches come first, ordered by games played.
+  Everything else is ranked by trigram word similarity (spelling) plus embedding
+  cosine similarity (meaning). Weak embedding-only hits are dropped, so junk input
+  returns nothing.
+- **Fallback:** if the table is missing or was built with a different model than the
+  backend's `EMBED_MODEL`, search falls back to plain SQL matching (rechecked every
+  minute, so running `make embed` turns it on without a restart).
+
+The first `make embed` downloads the model from Hugging Face (about 90 MB; no token
+needed, so ignore the unauthenticated-request warning). `sentence-transformers`
+pulls in `torch`, which is a large install and adds a few hundred MB of memory to the
+backend. Embedding the ~46,000 aliases takes about 10 seconds on a laptop CPU, and a
+search takes about 15 ms.
+
+`make search-eval` compares plain SQL with hybrid search on 30 labeled queries
+(`backend/eval/search_cases.csv`). This is the baseline phase 5 (fine-tuning) has to beat:
+
+| Category | n | SQL hit@1 | Hybrid hit@1 | Hybrid hit@5 |
+|---|---|---|---|---|
+| exact / given name | 6 | 100% | 100% | 100% |
+| accents | 2 | 50% | 100% | 100% |
+| nicknames and suffixes | 14 | 7% | 93% | 100% |
+| misspellings | 8 | 0% | 88% | 100% |
+| **all** | 30 | 27% | 93% | 100% |
 
 ## How Ask AI answers
 
@@ -211,6 +250,9 @@ Set these in the environment or in `backend/.env`:
 | `SQL_TIMEOUT_MS` | `5000` | per-query statement timeout |
 | `SQL_MAX_ROWS` | `200` | rows returned to Claude per query |
 | `BROWSE_CACHE_SECONDS` | `3600` | `Cache-Control` max-age for browse API responses |
+| `EMBED_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | must match the model `make embed` used (also read by the pipeline) |
+| `SEARCH_VECTOR_MIN` | `0.65` | minimum cosine similarity for embedding-only search hits |
+| `SEARCH_FUZZY_MIN` | `0.45` | minimum trigram word similarity for spelling-only hits |
 
 These live in the repo-root `.env`:
 
