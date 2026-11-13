@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import LeadersView from './views/LeadersView.vue'
 import AskView from './views/AskView.vue'
+import PlayerView from './views/PlayerView.vue'
 import './style.css'
 
 const router = createRouter({
@@ -10,6 +11,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/leaders' },
     { path: '/leaders', component: LeadersView, meta: { title: 'Leaders' } },
+    { path: '/players/:playerId', component: PlayerView, meta: { title: 'Player' } },
     { path: '/ask', component: AskView, meta: { title: 'Ask AI' } },
     { path: '/:pathMatch(.*)*', redirect: '/leaders' },
   ],

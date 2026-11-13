@@ -33,6 +33,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa
 
 import agent  # noqa: E402
 import browse  # noqa: E402
+import players  # noqa: E402
 import db  # noqa: E402
 from schema import schema_prompt  # noqa: E402
 
@@ -51,6 +52,7 @@ async def lifespan(_: FastAPI):
 client = anthropic.AsyncAnthropic()
 app = FastAPI(title="Baseball GPT", lifespan=lifespan)
 app.include_router(browse.router)  # token-free browse API: /api/meta, /api/leaderboard
+app.include_router(players.router)  # /api/players search and player pages
 
 
 class Message(BaseModel):

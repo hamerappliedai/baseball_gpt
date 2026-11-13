@@ -1,5 +1,6 @@
 <script setup>
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { streamChat } from '../api'
@@ -9,7 +10,17 @@ const messages = ref([])
 const question = ref('')
 const streaming = ref(false)
 const logEl = ref(null)
+const route = useRoute()
 let controller = null
+
+// A link like /ask?q=... (from a player page) prefills the question; the user still sends it.
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q === 'string' && q && !streaming.value) question.value = q
+  },
+  { immediate: true },
+)
 
 const examples = [
   'Who hit the most home runs in a single season?',

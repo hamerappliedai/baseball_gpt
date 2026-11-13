@@ -135,3 +135,22 @@ async def fetch(query: str | pgsql.Composable, params: dict[str, Any] | None = N
             async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(query, params)
                 return await cur.fetchall()
+
+
+async def fetch_many(queries: dict[str, str | pgsql.Composable],
+                     params: dict[str, Any] | None = None) -> dict[str, list[dict[str, Any]]]:
+    """Run several fixed queries on one connection and one read-only snapshot.
+
+    Same rules as fetch(): user input only ever goes in `params`.
+    """
+    pool = await open_pool()
+    results: dict[str, list[dict[str, Any]]] = {}
+    async with pool.connection() as conn:
+        async with conn.transaction(force_rollback=True):
+            await conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            await conn.execute(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
+            async with conn.cursor(row_factory=dict_row) as cur:
+                for name, query in queries.items():
+                    await cur.execute(query, params)
+                    results[name] = await cur.fetchall()
+    return results
