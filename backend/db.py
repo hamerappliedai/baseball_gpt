@@ -1,10 +1,15 @@
-"""Read-only access to the warehouse for Claude's SQL.
+"""Read-only access to the warehouse.
 
-Every query runs as the bgpt_reader role (SELECT on marts only, see
-db/roles.sql) inside a READ ONLY transaction with a statement timeout, through
-a server-side cursor so a huge result is never pulled into memory, and the
-transaction is always rolled back. The role's privileges are the security
-boundary; the rest keeps one bad query from tying up the database or the app.
+Two entry points, both running as the bgpt_reader role (SELECT on marts only,
+see db/roles.sql) inside a READ ONLY transaction with a statement timeout that
+is always rolled back:
+
+- run_query(sql): Claude's arbitrary SQL, through a server-side cursor so a
+  huge result is never pulled into memory, capped at MAX_ROWS.
+- fetch(query, params): the fixed, parameterized queries behind the browse API.
+
+The role's privileges are the security boundary; the rest keeps one bad query
+from tying up the database or the app.
 """
 
 from __future__ import annotations
@@ -14,7 +19,11 @@ import decimal
 import os
 from dataclasses import dataclass
 
+from typing import Any
+
 import psycopg
+from psycopg import sql as pgsql
+from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
 STATEMENT_TIMEOUT_MS = int(os.environ.get("SQL_TIMEOUT_MS", "5000"))
@@ -110,3 +119,19 @@ async def run_query(sql: str) -> QueryResult:
                 msg += f" (hint: {diag.message_hint})"
             raise QueryError(msg) from None
     return QueryResult(columns, [tuple(r) for r in rows[:MAX_ROWS]], len(rows) > MAX_ROWS)
+
+
+async def fetch(query: str | pgsql.Composable, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Run one of the app's own parameterized queries and return rows as dicts.
+
+    Never pass user input into `query` itself: values go in `params`, and any
+    identifiers must come from an allow-list and be composed with psycopg.sql.
+    """
+    pool = await open_pool()
+    async with pool.connection() as conn:
+        async with conn.transaction(force_rollback=True):
+            await conn.execute("SET TRANSACTION READ ONLY")
+            await conn.execute(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(query, params)
+                return await cur.fetchall()

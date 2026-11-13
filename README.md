@@ -1,14 +1,21 @@
 # Baseball GPT
 
-Ask questions about 150 years of major league baseball, Negro Leagues included, and
-get answers grounded in SQL over the SABR Lahman database. A Vue 3 front end streams
-the conversation from a FastAPI backend. There, Claude writes and runs read-only
-queries against documented Postgres marts, then answers from the results.
+Explore 150 years of major league baseball, Negro Leagues included, from the SABR
+Lahman database. The site has two modes over the same documented Postgres marts:
+
+- **Leaders** (`/leaders`): leaderboards served straight from SQL. No AI, so no token
+  cost per visit.
+- **Ask AI** (`/ask`): Claude writes and runs read-only queries, then answers from the
+  results. Each question spends Claude API tokens.
+
+A Vue 3 front end talks to a FastAPI backend. The plan for the token-free browse mode is
+in [docs/browse-plan.md](docs/browse-plan.md).
 
 ```
 baseball_gpt/
-├── backend/            FastAPI app: Claude tool-use loop (agent.py), SQL tool (db.py), schema prompt (schema.py)
-├── frontend/           Vue 3 + Vite app (src/App.vue, src/api.js)
+├── backend/            FastAPI app: browse API (browse.py, stats.py), Claude tool-use loop (agent.py),
+│                       database access (db.py), schema prompt (schema.py)
+├── frontend/           Vue 3 + Vite app: views/LeadersView.vue, views/AskView.vue, src/api.js
 ├── pipeline/           Downloads, verifies and loads the Lahman database (see pipeline/README.md)
 ├── transform/          dbt project: raw → staging → documented marts (see transform/README.md)
 ├── db/init/            Postgres init: pgvector extension and warehouse schemas
@@ -103,12 +110,42 @@ make backend-test
 ```
 
 `make test` runs the pipeline tests. `make backend-test` runs the backend tests:
-- the SQL tool runs against the live database (these are skipped if it isn't running);
+- the SQL tool and the browse API run against the live database (these are skipped if
+  it isn't running). The browse tests check known records and reject bad parameters;
 - the tool-use loop runs against a scripted fake Claude client, so no API calls are made.
 
 dbt data tests run as part of `make transform`.
 
-## How it answers
+## Browse API (no AI)
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/meta` | season range, leagues, era presets and the stat catalogue, for the dropdowns |
+| `GET /api/leaderboard` | a ranked leaderboard; ties share a rank |
+
+`/api/leaderboard` takes these parameters:
+- `category` (`batting`/`pitching`)
+- `stat`
+- `scope` (`season`/`career`)
+- `from` and `to`
+- `league` (`all`, `negro`, or a `league_id`)
+- `qualified`
+- `limit` (at most 100) and `offset`
+
+Example: `/api/leaderboard?category=pitching&stat=era&from=1947`.
+
+How it stays safe and fast:
+- **No user SQL.** Each request runs a fixed, parameterized query as the same read-only
+  `bgpt_reader` role. Stats and leagues are checked against an allow-list in
+  `stats.py`, which holds only Lahman stats. Unknown values get a 422.
+- **Qualification.** Rate stats (AVG, ERA, ...) always use the dbt qualification flags.
+- **Caching.** Responses are cached in memory and sent with an `ETag` and
+  `Cache-Control: public, max-age=3600` (`BROWSE_CACHE_SECONDS`), so a browser or CDN
+  can reuse them.
+
+The UI keeps every filter in the URL, so any leaderboard can be shared as a link.
+
+## How Ask AI answers
 
 1. **Schema prompt.** At startup, `schema.py` reads the table and column comments that
    dbt wrote to Postgres (`persist_docs`). It renders them into the system prompt, so
@@ -166,6 +203,7 @@ Set these in the environment or in `backend/.env`:
 | `MAX_TOOL_ROUNDS` | `8` | query rounds before Claude must answer |
 | `SQL_TIMEOUT_MS` | `5000` | per-query statement timeout |
 | `SQL_MAX_ROWS` | `200` | rows returned to Claude per query |
+| `BROWSE_CACHE_SECONDS` | `3600` | `Cache-Control` max-age for browse API responses |
 
 These live in the repo-root `.env`:
 
