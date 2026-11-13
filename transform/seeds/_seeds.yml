@@ -1,0 +1,30 @@
+version: 2
+
+seeds:
+  - name: seed_player_nicknames
+    description: >
+      Hand-curated nicknames and name forms ("The Iron Horse", "Ken Griffey Jr.")
+      for player search. Lahman has no nickname field, so this list was drafted
+      and reviewed by hand, resolved to Lahman player_ids by name and debut year.
+      Phase 4 embeds these alongside names derived from Lahman; phase 5 uses
+      them as training and evaluation pairs. full_name is kept for readability
+      and checked against players by tests/nicknames_match_players.sql.
+    config:
+      column_types:
+        player_id: text
+        full_name: text
+        alias: text
+        kind: text
+    data_tests:
+      - unique_combination: {arguments: {columns: [player_id, alias]}}
+    columns:
+      - name: player_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_people'), field: player_id}}
+      - name: alias
+        data_tests: [not_null]
+      - name: kind
+        description: "nickname, or name_form for a suffix like Jr./Sr. that Lahman leaves out"
+        data_tests:
+          - accepted_values: {arguments: {values: [nickname, name_form]}}

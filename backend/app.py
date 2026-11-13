@@ -9,6 +9,7 @@ returns a Server-Sent Events stream of JSON events (see agent.run_turn):
     {"type": "done", "stop_reason": "..."}              the reply is complete
 """
 
+import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -34,6 +35,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa
 import agent  # noqa: E402
 import browse  # noqa: E402
 import players  # noqa: E402
+import search  # noqa: E402
 import standings  # noqa: E402
 import db  # noqa: E402
 from schema import schema_prompt  # noqa: E402
@@ -45,7 +47,11 @@ log = logging.getLogger("baseball_gpt")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Load the search embedding model in the background so the first player
+    # search doesn't wait for it; until then search falls back to SQL.
+    warm = asyncio.create_task(search.warm_up())
     yield
+    warm.cancel()
     await db.close_pool()
 
 
