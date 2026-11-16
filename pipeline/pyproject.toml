@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "Download, verify and load the SABR Lahman database into Postgres"
 requires-python = ">=3.11"
 dependencies = [
+    "pgvector>=0.3",
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.2.4",
+    "sentence-transformers>=3",
 ]
 
 [dependency-groups]

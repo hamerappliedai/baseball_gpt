@@ -1,5 +1,6 @@
 -- Runs once, when the Postgres volume is first created.
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- spelling-tolerant player search (phase 4)
 
 -- Layers of the warehouse:
 --   raw      CSVs loaded as-is (all text), owned by the pipeline's load step

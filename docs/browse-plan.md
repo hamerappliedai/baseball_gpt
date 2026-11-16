@@ -1,6 +1,6 @@
 # Plan: a no-LLM browse mode
 
-Status: approved; milestones 1 (Browse API + Leaders page), 2 (player search + player pages) and 3 (standings) done. Decisions (2026-11-12):
+Status: approved; milestones 1 (Browse API + Leaders page), 2 (player search + player pages), 3 (standings) and 4 (phase 4 embeddings) done. Decisions (2026-11-12):
 
 - **Stats:** only what Lahman provides. Derived stats are computed from Lahman columns;
   nothing else is added (no WAR).
@@ -212,6 +212,12 @@ The search endpoint's contract never changes; only the matching improves.
      sentence-transformers model with an HNSW index.
    - A search embeds the query once and combines nearest neighbours with the SQL match
      (hybrid ranking).
+
+   Built: nicknames come from a curated dbt seed (about 200 rows), because Lahman has
+   none. A pretrained model is strong on nicknames but weak on typos ("mickey mantel"
+   scored below unrelated names), so the hybrid adds pg_trgm word similarity for
+   spelling. Exact and prefix name matches still win. On 30 labeled queries, hit@1 goes
+   from 27% (SQL) to 93% (hybrid); see `make search-eval`.
 3. **Phase 5:** fine-tune the model on name/alias pairs, then show measured gains over
    the baseline (recall@k on a held-out set) on an about page.
 

@@ -3,8 +3,10 @@
     GET /api/players?q=gehrig        typeahead search, best match first
     GET /api/players/{player_id}     everything for one player page
 
-Search is SQL name matching for now; phase 4 swaps in embedding search behind
-the same endpoint and response shape.
+Search is hybrid (search.py): name matching, trigram spelling similarity and
+sentence-transformers embeddings over vectors.player_aliases, which includes
+curated nicknames. If the embeddings aren't built yet it falls back to plain
+SQL name matching, with the same response shape.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Path, Query, Request, Response
 
 import db
+import search as hybrid
 from browse import cached, json_response
 
 router = APIRouter(prefix="/api/players", tags=["players"])
@@ -21,12 +24,7 @@ router = APIRouter(prefix="/api/players", tags=["players"])
 
 # --- Search -------------------------------------------------------------------------
 
-def _like_escape(s: str) -> str:
-    """Escape LIKE wildcards so user input only ever matches literally."""
-    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-# Ranked best first: exact full or last name, prefix, anywhere in the name, then
+# Fallback when the embeddings aren't available. Ranked best first: exact full or last name, prefix, anywhere in the name, then
 # given name ("George Herman Ruth"). Ties go to the player with more games, so
 # "Robinson" finds Brooks, Frank and Jackie before the rest.
 _SEARCH_SQL = """
@@ -56,17 +54,30 @@ async def search(
     q: str = Query(..., min_length=2, max_length=60, description="Part of a player's name"),
     limit: int = Query(10, ge=1, le=25),
 ) -> Response:
-    """Players whose name matches `q`, best match first."""
+    """Players matching `q` by name, nickname, spelling or meaning, best match first.
+
+    Each result says how it matched: "name", "alias" (with matched_alias, e.g.
+    "The Iron Horse") or "similar" (a close spelling or meaning).
+    """
     text = " ".join(q.split())  # collapse whitespace
     if len(text) < 2:
         raise HTTPException(status_code=422, detail="Type at least two characters.")
-    esc = _like_escape(text)
+    if await hybrid.vectors_ready():
+        rows, mode = await hybrid.hybrid_search(text, limit), "hybrid"
+    else:
+        rows, mode = await _sql_search(text, limit), "sql"
+    return json_response(request, {"query": text, "mode": mode, "results": rows})
+
+
+async def _sql_search(text: str, limit: int) -> list[dict[str, Any]]:
+    esc = hybrid.like_escape(text)
     rows = await db.fetch(_SEARCH_SQL, {
         "exact": text.lower(), "prefix": f"{esc}%", "anywhere": f"%{esc}%", "limit": limit,
     })
     for r in rows:
         r.pop("match_rank")
-    return json_response(request, {"query": text, "results": rows})
+        r["match"], r["matched_alias"] = "name", None
+    return rows
 
 
 # --- Player page ----------------------------------------------------------------------

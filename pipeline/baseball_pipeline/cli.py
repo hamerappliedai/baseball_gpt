@@ -5,6 +5,7 @@
     bgpt-pipeline verify   --release 2025                          # re-check the cache, offline
     bgpt-pipeline load     --release 2025                          # verify + load raw schema
     bgpt-pipeline build    --release 2025                          # fetch + load
+    bgpt-pipeline embed                                            # aliases + embeddings -> vectors schema
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import argparse
 import logging
 import sys
 
+from . import embed as embed_mod
 from . import fetch as fetch_mod
 from . import load as load_mod
 
@@ -42,10 +44,17 @@ def main(argv: list[str] | None = None) -> int:
     bp = add("build", "fetch, verify and load")
     for p in (lp, bp):
         p.add_argument("--database-url", help="defaults to $DATABASE_URL")
+    ep = sub.add_parser("embed", help="embed player names and nicknames into vectors.player_aliases")
+    ep.add_argument("--database-url", help="defaults to $DATABASE_URL")
+    ep.add_argument("--model", default=embed_mod.DEFAULT_MODEL,
+                    help="sentence-transformers model (default: $EMBED_MODEL or all-MiniLM-L6-v2)")
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(levelname)-7s %(message)s")
+    # The Hugging Face client logs every model file request at INFO.
+    for noisy in ("httpx", "huggingface_hub"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     try:
         if args.command == "discover":
             fetch_mod.discover(args.release, args.box_shared_name, args.source_page, args.force)
@@ -58,7 +67,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "build":
             fetch_mod.fetch(args.release)
             load_mod.load(args.release, args.database_url)
-    except (fetch_mod.VerificationError, load_mod.LoadError, FileNotFoundError, FileExistsError) as e:
+        elif args.command == "embed":
+            embed_mod.embed(args.database_url, args.model)
+    except (fetch_mod.VerificationError, load_mod.LoadError, embed_mod.EmbedError, FileNotFoundError, FileExistsError) as e:
         logging.error("%s", e)
         return 1
     return 0

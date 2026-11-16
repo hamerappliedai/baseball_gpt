@@ -3,7 +3,8 @@
 --   psql -v reader_password=... -f db/roles.sql
 --
 -- Security rests on privileges, not on session settings (a session can change
--- its own settings): the role can SELECT the marts tables and nothing else.
+-- its own settings): the role can SELECT the marts tables and the search
+-- aliases in vectors, and nothing else.
 -- The backend also runs every query in a READ ONLY transaction with a
 -- statement timeout and always rolls it back.
 
@@ -23,11 +24,18 @@ ALTER ROLE bgpt_reader SET search_path = marts;
 REVOKE TEMPORARY ON DATABASE baseball FROM PUBLIC;
 GRANT CONNECT ON DATABASE baseball TO bgpt_reader;
 
--- marts only: raw and staging stay invisible.
-REVOKE ALL ON SCHEMA raw, staging, vectors FROM bgpt_reader;
+-- marts and vectors only: raw and staging stay invisible.
+REVOKE ALL ON SCHEMA raw, staging FROM bgpt_reader;
 GRANT USAGE ON SCHEMA marts TO bgpt_reader;
 GRANT SELECT ON ALL TABLES IN SCHEMA marts TO bgpt_reader;
 -- dbt drops and recreates mart tables on every build; new tables it creates
 -- (as the owner role) get SELECT for the reader automatically.
 ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA marts
+    GRANT SELECT ON TABLES TO bgpt_reader;
+
+-- Player search reads the alias embeddings (phase 4). `bgpt-pipeline embed`
+-- recreates these tables, so the same default-privileges rule applies.
+GRANT USAGE ON SCHEMA vectors TO bgpt_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA vectors TO bgpt_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA vectors
     GRANT SELECT ON TABLES TO bgpt_reader;

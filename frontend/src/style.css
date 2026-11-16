@@ -239,6 +239,7 @@ button.link { background: none; color: #57606a; padding: 4px 8px; }
 .search-results button.active { background: #f6f7f9; }
 .search-results .who { font-weight: 600; }
 .search-results .meta { color: #8b949e; font-size: 0.82em; }
+.search-results .matched { color: #b5532f; font-size: 0.82em; font-style: italic; }
 .search-empty { padding: 8px 10px; color: #8b949e; font-size: 0.9em; }
 .tag {
   display: inline-block;

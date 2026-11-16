@@ -30,7 +30,12 @@ async def test_search_by_last_name_puts_famous_players_first(api):
 
 
 async def test_search_full_name_and_case(api):
-    assert (await search(api, "LOU GEHRIG")) == ["Lou Gehrig"]
+    names = await search(api, "LOU GEHRIG")
+    assert names[0] == "Lou Gehrig"
+    # Only other name/alias matches follow (Buck Leonard, "The Black Lou Gehrig"),
+    # never loose similarity hits.
+    res = (await api.get("/api/players", params={"q": "LOU GEHRIG"})).json()["results"]
+    assert all(r.get("match", "name") != "similar" for r in res)
 
 
 async def test_search_by_given_name(api):

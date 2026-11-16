@@ -84,6 +84,8 @@ const years = (p) => (p.first_season === p.last_season ? p.first_season : `${p.f
             {{ p.full_name }}
             <span v-if="p.is_hall_of_famer" class="tag" title="Hall of Fame">HOF</span>
           </span>
+          <span v-if="p.matched_alias" class="matched">matched “{{ p.matched_alias }}”</span>
+          <span v-else-if="p.match === 'similar'" class="matched">similar name</span>
           <span class="meta">{{ years(p) }} · {{ p.primary_position || '—' }} · {{ p.teams }}</span>
         </button>
       </li>

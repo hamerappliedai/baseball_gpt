@@ -1,0 +1,31 @@
+query,player_id,category
+lou gehrig,gehrilo01,exact
+pujols,pujolal01,exact
+satchel paige,paigesa01,exact
+george herman,ruthba01,given_name
+acuna,acunaro01,accent
+jose abreu,abreujo02,accent
+iron horse,gehrilo01,nickname
+big papi,ortizda01,nickname
+say hey,mayswi01,nickname
+yaz,yastrca01,nickname
+the bambino,ruthba01,nickname
+sultan of swat,ruthba01,nickname
+mr october,jacksre01,nickname
+hammering hank,aaronha01,nickname
+shoeless joe,jacksjo01,nickname
+the kid,griffke02,nickname
+griffey jr,griffke02,name_form
+lou gherig,gehrilo01,typo
+mickey mantel,mantlmi01,typo
+derek jeeter,jeterde01,typo
+yastrzemsky,yastrca01,typo
+roberto clemente,clemero01,exact
+ted wiliams,willite01,typo
+honus wagnor,wagneho01,typo
+sandy koufax,koufasa01,exact
+walter johnsen,johnswa01,typo
+cy yung,youngcy01,typo
+the big unit,johnsra05,nickname
+rocket,clemero02,nickname
+pudge,rodriiv01,nickname
