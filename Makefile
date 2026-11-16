@@ -6,17 +6,19 @@ RELEASE ?= 2025
 PIPELINE = cd pipeline && uv run bgpt-pipeline
 DBT = cd transform && uv run dbt
 
-.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed docs test backend-test search-eval
+.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed migrate docs test backend-test search-eval user-add user-list
 
 db-up:            ## start Postgres + pgvector (host port 5432), wait until healthy, apply roles
 	docker compose up -d --wait
 	$(MAKE) --no-print-directory db-roles
+	$(MAKE) --no-print-directory migrate
 
-db-roles:         ## create/update the backend's read-only role (idempotent)
+db-roles:         ## create/update the backend's database roles (idempotent)
 	@test -n "$(READER_PASSWORD)" || (echo "Set READER_PASSWORD in .env (see .env.example)"; exit 1)
+	@test -n "$(APP_PASSWORD)" || (echo "Set APP_PASSWORD in .env (see .env.example)"; exit 1)
 	@echo "applying db/roles.sql"
 	@docker compose exec -T db psql -q -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) \
-		-v reader_password='$(READER_PASSWORD)' -f - < db/roles.sql
+		-v reader_password='$(READER_PASSWORD)' -v app_password='$(APP_PASSWORD)' -f - < db/roles.sql
 
 db-down:
 	docker compose down
@@ -41,6 +43,9 @@ load:
 transform:        ## dbt: seeds, staging views, marts and all data tests
 	$(DBT) build --profiles-dir .
 
+migrate:          ## apply db/migrations (accounts, sessions, usage) to the app schema
+	$(PIPELINE) migrate
+
 embed:            ## embed player names + nicknames into vectors.player_aliases (downloads the model once)
 	$(PIPELINE) embed
 
@@ -55,3 +60,10 @@ backend-test:     ## backend tests (SQL tool against the running DB, agent loop 
 
 search-eval:      ## compare plain SQL vs hybrid player search on labeled queries
 	cd backend && .venv/bin/python eval/search_eval.py
+
+user-add:         ## create an Ask AI account: make user-add EMAIL=... NAME="..." [ADMIN=1] [GENERATE=1]
+	@test -n "$(EMAIL)" -a -n "$(NAME)" || (echo 'usage: make user-add EMAIL=you@example.com NAME="Your Name" [ADMIN=1]'; exit 1)
+	cd backend && .venv/bin/python manage.py user-add --email "$(EMAIL)" --name "$(NAME)" $(if $(ADMIN),--admin) $(if $(GENERATE),--generate-password)
+
+user-list:        ## list Ask AI accounts with today's token use
+	cd backend && .venv/bin/python manage.py user-list

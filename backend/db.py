@@ -43,7 +43,10 @@ def reader_url() -> str:
 async def open_pool() -> AsyncConnectionPool:
     global _pool
     if _pool is None:
-        _pool = AsyncConnectionPool(reader_url(), min_size=1, max_size=5, open=False)
+        # A short wait for a connection, so a database outage fails fast instead of
+        # hanging requests (and tests) for psycopg_pool's default 30 s.
+        _pool = AsyncConnectionPool(reader_url(), min_size=1, max_size=5, open=False, timeout=10,
+                                    kwargs={"connect_timeout": 5})
         await _pool.open()
     return _pool
 

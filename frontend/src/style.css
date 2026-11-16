@@ -331,3 +331,39 @@ table.data td.neg { color: #b42318; }
 @media (max-width: 640px) {
   .divisions { grid-template-columns: 1fr; }
 }
+
+/* Accounts: header link, sign-in page, Ask AI gate */
+.topbar nav .account { color: #57606a; font-size: 0.95em; }
+.topbar nav button.account { padding: 6px 12px; }
+.topbar nav button.account:hover { background: #eceef1; }
+.login { max-width: 380px; width: 100%; margin: 0 auto; }
+.login-form { display: flex; flex-direction: column; gap: 12px; }
+.login-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; color: #57606a; }
+.login-form input {
+  padding: 9px 10px;
+  font: inherit;
+  color: #1f2328;
+  border: 1px solid #d0d4d9;
+  border-radius: 8px;
+}
+.login-form input:focus { outline: 2px solid #d97757; outline-offset: -1px; }
+.login-form button { padding: 10px 20px; }
+.small { font-size: 0.82em; }
+.gate {
+  margin: 24px 0;
+  padding: 20px 24px;
+  background: #fff;
+  border: 1px solid #e3e5e8;
+  border-radius: 12px;
+}
+.gate h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.gate p { margin: 8px 0; line-height: 1.5; }
+a.button {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: #d97757;
+  color: #fff;
+  text-decoration: none;
+}
+.allowance { margin: -4px 0 0; font-size: 0.8em; text-align: right; }

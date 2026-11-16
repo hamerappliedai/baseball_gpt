@@ -139,8 +139,25 @@ async def _system_blocks() -> list[dict[str, Any]]:
              "cache_control": {"type": "ephemeral"}}]
 
 
-async def run_turn(client: anthropic.AsyncAnthropic, messages: list[dict[str, Any]]) -> AsyncIterator[dict]:
-    """Answer the latest user message, querying the database as needed."""
+USAGE_FIELDS = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+
+
+def _add_usage(total: dict[str, Any], final: Any) -> None:
+    """Add one API response's token counts to the running total."""
+    usage = getattr(final, "usage", None)
+    for field in USAGE_FIELDS:
+        total[field] = total.get(field, 0) + (getattr(usage, field, None) or 0)
+
+
+async def run_turn(client: anthropic.AsyncAnthropic, messages: list[dict[str, Any]],
+                   usage: dict[str, Any] | None = None) -> AsyncIterator[dict]:
+    """Answer the latest user message, querying the database as needed.
+
+    If `usage` is given, it is filled in as the turn runs with the token counts
+    summed over every API call, plus tool_rounds and stop_reason, so the caller
+    can record the cost even if the stream ends early.
+    """
+    usage = {} if usage is None else usage
     messages = list(messages)
     system = await _system_blocks()
     rounds = 0
@@ -177,6 +194,8 @@ async def run_turn(client: anthropic.AsyncAnthropic, messages: list[dict[str, An
                         wrote_text = True
                         yield {"type": "text", "text": event.text}
                 final = await stream.get_final_message()
+            _add_usage(usage, final)
+            usage["stop_reason"] = final.stop_reason
             json_retries = 0
         except ValueError:
             # Streamed tool input the SDK couldn't parse at all; no tool_use_id to
@@ -210,6 +229,7 @@ async def run_turn(client: anthropic.AsyncAnthropic, messages: list[dict[str, An
             return
 
         rounds += 1
+        usage["tool_rounds"] = rounds
         results = []
         for block in tool_uses:
             checked = _validate_tool_input(block.input) if block.name == SQL_TOOL["name"] else None

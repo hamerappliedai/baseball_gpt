@@ -10,7 +10,14 @@ export async function streamChat(messages, onEvent, signal) {
     signal,
   })
   if (!res.ok || !res.body) {
-    throw new Error(`Request failed: ${res.status} ${res.statusText}`)
+    let detail = `Request failed: ${res.status} ${res.statusText}`
+    try {
+      const body = await res.json()
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch {}
+    const err = new Error(detail)
+    err.status = res.status
+    throw err
   }
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()

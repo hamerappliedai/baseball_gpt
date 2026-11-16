@@ -6,6 +6,7 @@
     bgpt-pipeline load     --release 2025                          # verify + load raw schema
     bgpt-pipeline build    --release 2025                          # fetch + load
     bgpt-pipeline embed                                            # aliases + embeddings -> vectors schema
+    bgpt-pipeline migrate                                          # app schema (accounts) migrations
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import sys
 from . import embed as embed_mod
 from . import fetch as fetch_mod
 from . import load as load_mod
+from . import migrate as migrate_mod
 
 DEFAULT_RELEASE = "2025"
 SOURCE_PAGE = "https://sabr.org/lahman-database/"
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     ep.add_argument("--database-url", help="defaults to $DATABASE_URL")
     ep.add_argument("--model", default=embed_mod.DEFAULT_MODEL,
                     help="sentence-transformers model (default: $EMBED_MODEL or all-MiniLM-L6-v2)")
+    mp = sub.add_parser("migrate", help="apply pending db/migrations to the app schema (accounts)")
+    mp.add_argument("--database-url", help="defaults to $DATABASE_URL (the owner role)")
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -69,7 +73,10 @@ def main(argv: list[str] | None = None) -> int:
             load_mod.load(args.release, args.database_url)
         elif args.command == "embed":
             embed_mod.embed(args.database_url, args.model)
-    except (fetch_mod.VerificationError, load_mod.LoadError, embed_mod.EmbedError, FileNotFoundError, FileExistsError) as e:
+        elif args.command == "migrate":
+            migrate_mod.migrate(args.database_url)
+    except (fetch_mod.VerificationError, load_mod.LoadError, embed_mod.EmbedError,
+            migrate_mod.MigrationError, FileNotFoundError, FileExistsError) as e:
         logging.error("%s", e)
         return 1
     return 0
