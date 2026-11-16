@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { streamChat } from '../api'
+import { auth, refreshUser, signedOut } from '../auth'
 
 // [{ role, content, error?, queries?: [{ id, purpose, sql, status, rows?, truncated?, error? }] }]
 const messages = ref([])
@@ -29,7 +30,25 @@ const examples = [
   "What were Josh Gibson's best seasons?",
 ]
 
+// A different person (or nobody) signed in: don't show the last conversation.
+watch(
+  () => auth.user?.email,
+  (now, before) => {
+    if (now !== before) {
+      controller?.abort()
+      messages.value = []
+    }
+  },
+)
+
 const render = (text) => DOMPurify.sanitize(marked.parse(text))
+const fmt = (n) => Number(n).toLocaleString()
+const usedPct = () => {
+  const a = auth.allowance
+  if (!a) return 0
+  if (a.daily_token_limit <= 0) return 100
+  return Math.min(100, Math.round((100 * a.tokens_today) / a.daily_token_limit))
+}
 
 async function scrollToBottom() {
   await nextTick()
@@ -75,10 +94,12 @@ async function ask(text = question.value.trim()) {
       controller.signal,
     )
   } catch (err) {
+    if (err.status === 401) signedOut() // session expired: show the sign-in prompt
     if (err.name !== 'AbortError') reply.error = err.message
   } finally {
     streaming.value = false
     controller = null
+    refreshUser() // updates the allowance shown under the composer
   }
 }
 
@@ -103,10 +124,26 @@ function onKeydown(e) {
   <main class="chat">
     <div class="page-head">
       <h1>Ask AI</h1>
-      <button class="link" :disabled="streaming || !messages.length" @click="clearChat">New chat</button>
+      <button v-if="auth.user" class="link" :disabled="streaming || !messages.length" @click="clearChat">New chat</button>
     </div>
 
-    <section ref="logEl" class="log">
+    <section v-if="auth.checked && !auth.user" class="gate">
+      <h2>Sign in to ask questions</h2>
+      <p>
+        Ask AI sends your question to Claude, which writes and runs SQL against the database and
+        explains the answer. Each question costs real money, so it's open to invited accounts only.
+      </p>
+      <p>
+        <RouterLink :to="{ path: '/login', query: { next: '/ask' } }" class="button">Sign in</RouterLink>
+      </p>
+      <p class="muted">
+        Everything else is free and needs no account:
+        <RouterLink to="/leaders">Leaders</RouterLink>, <RouterLink to="/standings">Standings</RouterLink>
+        and player pages (use the search box).
+      </p>
+    </section>
+
+    <section v-else ref="logEl" class="log">
       <div v-if="!messages.length" class="empty">
         <p>Ask about 150 years of major league baseball, Negro Leagues included.<br />Answers come from SQL over the SABR Lahman database.</p>
         <div class="examples">
@@ -139,7 +176,7 @@ function onKeydown(e) {
       </div>
     </section>
 
-    <form class="composer" @submit.prevent="ask()">
+    <form v-if="auth.user" class="composer" @submit.prevent="ask()">
       <textarea
         v-model="question"
         rows="3"
@@ -150,5 +187,10 @@ function onKeydown(e) {
       <button v-if="streaming" type="button" @click="stop">Stop</button>
       <button v-else type="submit" :disabled="!question.trim()">Send</button>
     </form>
+    <p v-if="auth.user && auth.allowance" class="allowance muted"
+       :title="`${fmt(auth.allowance.tokens_today)} of ${fmt(auth.allowance.daily_token_limit)} tokens in the last 24 hours (cache reads count a tenth)`">
+      {{ usedPct() }}% of today's allowance used ·
+      {{ auth.allowance.questions_last_hour }}/{{ auth.allowance.hourly_question_limit }} questions this hour
+    </p>
   </main>
 </template>

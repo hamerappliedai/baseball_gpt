@@ -1,7 +1,7 @@
 """FastAPI backend for Baseball GPT.
 
 POST /api/chat with {"messages": [{"role": "user"|"assistant", "content": "..."}]}
-returns a Server-Sent Events stream of JSON events (see agent.run_turn):
+needs a signed-in user (accounts.py) and returns a Server-Sent Events stream of JSON events (see agent.run_turn):
     {"type": "text", "text": "..."}                     a chunk of the reply
     {"type": "query", "id", "purpose", "sql"}           Claude ran a SQL query
     {"type": "query_result", "id", "rows", "truncated", "error"}
@@ -26,13 +26,15 @@ load_dotenv(BACKEND_DIR / ".env")
 load_dotenv(BACKEND_DIR.parent / ".env")
 
 import anthropic  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
+from fastapi import Depends, FastAPI  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
+import accounts  # noqa: E402
 import agent  # noqa: E402
+import appdb  # noqa: E402
 import browse  # noqa: E402
 import players  # noqa: E402
 import search  # noqa: E402
@@ -53,6 +55,7 @@ async def lifespan(_: FastAPI):
     yield
     warm.cancel()
     await db.close_pool()
+    await appdb.close_pool()
 
 
 # Reads ANTHROPIC_API_KEY from the environment (populated from .env above).
@@ -61,15 +64,16 @@ app = FastAPI(title="Baseball GPT", lifespan=lifespan)
 app.include_router(browse.router)  # token-free browse API: /api/meta, /api/leaderboard
 app.include_router(players.router)  # /api/players search and player pages
 app.include_router(standings.router)  # /api/standings/{season}
+app.include_router(accounts.router)  # /api/auth/login, /logout, /me
 
 
 class Message(BaseModel):
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=20_000)
 
 
 class ChatRequest(BaseModel):
-    messages: list[Message] = Field(min_length=1)
+    messages: list[Message] = Field(min_length=1, max_length=2 * accounts.CHAT_MAX_TURNS + 1)
 
 
 def sse(event: dict) -> str:
@@ -77,11 +81,16 @@ def sse(event: dict) -> str:
 
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, user: dict = Depends(accounts.current_user)):
+    # Checked before streaming starts, so limits come back as plain 4xx responses.
+    await accounts.check_chat_allowed(user, sum(m.role == "user" for m in req.messages))
+
     async def generate():
+        usage: dict = {}
         try:
-            async for event in agent.run_turn(client, [m.model_dump() for m in req.messages]):
-                yield sse(event)
+            with accounts.InFlight(user["id"]):
+                async for event in agent.run_turn(client, [m.model_dump() for m in req.messages], usage):
+                    yield sse(event)
         except anthropic.AuthenticationError:
             yield sse({"type": "error", "message": "Invalid or missing ANTHROPIC_API_KEY."})
         except anthropic.RateLimitError:
@@ -94,6 +103,9 @@ async def chat(req: ChatRequest):
         except Exception as e:  # noqa: BLE001 - e.g. database down, no credentials
             log.exception("Unexpected error while streaming")
             yield sse({"type": "error", "message": f"Server error: {e}"})
+        finally:
+            if usage:  # at least one API call happened, so tokens were spent
+                await accounts.record_usage(user["id"], agent.MODEL, usage)
 
     return StreamingResponse(
         generate(),

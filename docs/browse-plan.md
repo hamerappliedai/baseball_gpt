@@ -1,6 +1,6 @@
 # Plan: a no-LLM browse mode
 
-Status: approved; milestones 1 (Browse API + Leaders page), 2 (player search + player pages), 3 (standings) and 4 (phase 4 embeddings) done. Decisions (2026-11-12):
+Status: approved; milestones 1 (Browse API + Leaders page), 2 (player search + player pages), 3 (standings), 4 (phase 4 embeddings) and 5 (accounts and Ask AI gating) done. Decisions (2026-11-12):
 
 - **Stats:** only what Lahman provides. Derived stats are computed from Lahman columns;
   nothing else is added (no WAR).
@@ -229,6 +229,15 @@ That is still zero tokens.
 
 ## Accounts and gating (separate milestone)
 
+Built as planned, with these changes:
+- Emails are stored lowercased with a plain unique index, so no `citext` extension is needed.
+- Failed logins are kept in `app.login_failures` (not in memory), so the limit holds across
+  several backend instances.
+- The migration runner is `bgpt-pipeline migrate`, which already runs as the owner.
+- Accounts are managed with `backend/manage.py` (`make user-add`, `make user-list`); there's
+  no admin page yet.
+- The daily budget is a rolling 24 hours, with cache reads counted at a tenth.
+
 Browse stays public and needs no login. Ask AI requires one.
 
 ### Data: a new `app` schema, outside dbt
@@ -337,5 +346,10 @@ To be detailed when we get there:
   are injected as env vars, not `.env` files.
 - **Data load:** the pipeline and dbt run as a one-off task, or from a machine with
   access, against RDS. After that, apply roles and migrations.
+- **Client addresses:** run uvicorn with `--proxy-headers --forwarded-allow-ips` set to the
+  ALB's range, so the per-address sign-in limit sees real clients, not the load balancer.
+- **Accounts:** `bgpt-pipeline migrate` runs on every deploy before the new tasks start;
+  admins create accounts with `manage.py` from a one-off task.
 - **CDN:** CloudFront in front, so the cached browse responses rarely reach the app.
+  `/api/auth/*` and `/api/chat` must not be cached and must forward cookies.
 - **Infrastructure as code:** Terraform or CDK. To be decided.

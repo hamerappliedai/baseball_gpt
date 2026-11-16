@@ -10,7 +10,8 @@ Lahman database. Everything reads the same documented Postgres marts:
 - **Standings** (`/standings/{season}`): every season's final standings, including the Negro
   Leagues, and its postseason. Also no AI.
 - **Ask AI** (`/ask`): Claude writes and runs read-only queries, then answers from the
-  results. Each question spends Claude API tokens.
+  results. Each question spends Claude API tokens, so Ask AI needs a sign-in: accounts
+  are created by an admin, and each one has hourly and daily limits (see Accounts below).
 
 A Vue 3 front end talks to a FastAPI backend. The plan for the token-free browse mode is
 in [docs/browse-plan.md](docs/browse-plan.md).
@@ -18,12 +19,14 @@ in [docs/browse-plan.md](docs/browse-plan.md).
 ```
 baseball_gpt/
 ├── backend/            FastAPI app: browse API (browse.py, stats.py, players.py, standings.py), Claude tool-use loop (agent.py),
-│                       database access (db.py), schema prompt (schema.py)
-├── frontend/           Vue 3 + Vite app: views/ (Leaders, Player, Standings, Ask), components/ (PlayerSearch, StatTable)
+│                       database access (db.py), schema prompt (schema.py), accounts and limits (accounts.py,
+│                       appdb.py, manage.py)
+├── frontend/           Vue 3 + Vite app: views/ (Leaders, Player, Standings, Ask, Login), components/ (PlayerSearch, StatTable)
 ├── pipeline/           Downloads, verifies and loads the Lahman database (see pipeline/README.md)
 ├── transform/          dbt project: raw → staging → documented marts (see transform/README.md)
 ├── db/init/            Postgres init: pgvector extension and warehouse schemas
-├── db/roles.sql        Read-only role the backend connects as
+├── db/roles.sql        The backend's roles: bgpt_reader (warehouse, read-only) and bgpt_app (accounts)
+├── db/migrations/      Numbered SQL migrations for the app schema (accounts, sessions, usage)
 └── docker-compose.yml  Postgres 17 + pgvector on host port 5432
 ```
 
@@ -118,7 +121,12 @@ make backend-test
   it isn't running). The browse tests check known records and reject bad parameters;
 - the hybrid search tests check nicknames, misspellings and junk input (skipped until
   `make embed` has run);
-- the tool-use loop runs against a scripted fake Claude client, so no API calls are made.
+- the tool-use loop runs against a scripted fake Claude client, so no API calls are made;
+- the account tests sign in, out and back, check rate limits, session expiry and
+  revocation, and that `/api/chat` refuses signed-out users and users over their limits.
+  They use throwaway `@example.test` accounts and the fake Claude client.
+
+Database tests skip within a second when Postgres isn't running.
 
 dbt data tests run as part of `make transform`.
 
@@ -191,6 +199,48 @@ search takes about 15 ms.
 | misspellings | 8 | 0% | 88% | 100% |
 | **all** | 30 | 27% | 93% | 100% |
 
+## Accounts and Ask AI limits
+
+Browse needs no account. Ask AI does, because every question costs money. There is no
+public sign-up: an admin creates accounts.
+
+```bash
+make user-add EMAIL=ann@example.com NAME="Ann"
+```
+
+It asks for the password twice without echoing it. Add `GENERATE=1` to generate one and
+print it once, or `ADMIN=1` for an admin. `make user-list` shows every account and its
+last-24-hour token use. `backend/manage.py` also has `user-passwd`, `user-disable`,
+`user-enable` and `user-limit`; changing a password or disabling an account signs that
+user out everywhere.
+
+How it works:
+- **Data:** user data lives in the `app` schema, outside the warehouse that the
+  pipeline and dbt rebuild. Its tables come from numbered migrations in
+  `db/migrations/`, applied by `make migrate` (part of `make db-up`) and recorded in
+  `app.schema_migrations`. Add a new file to change the schema; never edit an applied one.
+- **Roles:** the accounts code connects as `bgpt_app`, which can use the `app` schema
+  and nothing else. Claude's SQL runs as `bgpt_reader`, which can't see `app` at all, so
+  no question can read user data.
+- **Passwords** are hashed with Argon2id. A wrong email and a wrong password get the
+  same answer. Failed sign-ins are limited per email (5) and per client address (20)
+  per 15 minutes.
+- **Sessions** are server-side: the cookie holds a random token, and the database stores
+  only its SHA-256. The cookie is `HttpOnly`, `SameSite=Lax` and `Secure`, and lasts
+  `SESSION_DAYS`.
+- **Limits per user:** 20 questions an hour, 20 questions per conversation, one question
+  at a time, and a daily token allowance over a rolling 24 hours. Tokens are summed from
+  the API's reported usage over all of a question's tool-use rounds. Cache reads count a
+  tenth, since they cost a tenth and every round re-reads the cached schema prompt.
+  Usage is stored per question in `app.chat_usage`, even when the reader disconnects
+  mid-answer.
+
+Also set a monthly spending cap on the API key in the Anthropic Console. It's the
+backstop if anything here goes wrong.
+
+`Secure` cookies work on `http://localhost` in Chrome and Firefox. If you develop in
+Safari over plain http, set `COOKIE_SECURE=false` locally; never in production.
+
 ## How Ask AI answers
 
 1. **Schema prompt.** At startup, `schema.py` reads the table and column comments that
@@ -250,6 +300,13 @@ Set these in the environment or in `backend/.env`:
 | `SQL_TIMEOUT_MS` | `5000` | per-query statement timeout |
 | `SQL_MAX_ROWS` | `200` | rows returned to Claude per query |
 | `BROWSE_CACHE_SECONDS` | `3600` | `Cache-Control` max-age for browse API responses |
+| `SESSION_DAYS` | `14` | how long a sign-in lasts |
+| `COOKIE_SECURE` | `true` | set `false` only for local development over plain http in Safari |
+| `CHAT_HOURLY_LIMIT` | `20` | Ask AI questions per user per hour |
+| `CHAT_DAILY_TOKENS` | `300000` | default daily token allowance per user (rolling 24 h; cache reads count a tenth); override per user with `manage.py user-limit` |
+| `CHAT_MAX_TURNS` | `20` | questions per conversation |
+| `LOGIN_MAX_FAILURES_EMAIL` | `5` | failed sign-ins per email per 15 minutes |
+| `LOGIN_MAX_FAILURES_IP` | `20` | failed sign-ins per client address per 15 minutes |
 | `EMBED_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | must match the model `make embed` used (also read by the pipeline) |
 | `SEARCH_VECTOR_MIN` | `0.65` | minimum cosine similarity for embedding-only search hits |
 | `SEARCH_FUZZY_MIN` | `0.45` | minimum trigram word similarity for spelling-only hits |
@@ -260,3 +317,5 @@ These live in the repo-root `.env`:
 |---|---|
 | `READER_PASSWORD` | password for the `bgpt_reader` role, applied by `make db-up` / `make db-roles` |
 | `READER_DATABASE_URL` | connection string the backend uses (must contain the same password) |
+| `APP_PASSWORD` | password for the `bgpt_app` role (accounts), applied by `make db-up` / `make db-roles` |
+| `APP_DATABASE_URL` | connection string for accounts, sessions and usage (must contain the same password) |
