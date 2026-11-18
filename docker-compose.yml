@@ -13,12 +13,44 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db/bootstrap.sql:/docker-entrypoint-initdb.d/01_bootstrap.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s
       timeout: 3s
       retries: 30
+
+  # The production images, run against the local database (step 1 of
+  # docs/deploy-plan.md). Not started by default:
+  #   make image-build && docker compose --profile image up app   -> http://localhost:8080
+  #   docker compose --profile image run --rm ops <command>        (see deploy/ops.sh)
+  app:
+    profiles: [image]
+    image: baseball-gpt-app
+    depends_on:
+      db: { condition: service_healthy }
+    ports:
+      - "8080:8000"
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      READER_DATABASE_URL: postgresql://bgpt_reader:${READER_PASSWORD}@db:5432/${POSTGRES_DB:-baseball}
+      APP_DATABASE_URL: postgresql://bgpt_app:${APP_PASSWORD}@db:5432/${POSTGRES_DB:-baseball}
+      COOKIE_SECURE: "false"   # plain http on localhost; always true on AWS
+
+  ops:
+    profiles: [image]
+    image: baseball-gpt-ops
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-bgpt}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-bgpt}
+      PGDATABASE: ${POSTGRES_DB:-baseball}
+      READER_PASSWORD: ${READER_PASSWORD}
+      APP_PASSWORD: ${APP_PASSWORD}
 
 volumes:
   pgdata:

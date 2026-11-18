@@ -1,0 +1,21 @@
+# Keep the build context small and free of secrets.
+**/.env
+**/.env.*
+!.env.example
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+.git
+.cache
+.idea
+.claude
+data
+frontend/dist
+transform/target
+transform/logs
+transform/dbt_packages
+infra/.terraform
+infra/**/*.tfstate*
+backend/tests
+backend/eval

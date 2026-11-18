@@ -218,3 +218,16 @@ async def test_reader_role_cannot_see_accounts(reader):
     import db
     with pytest.raises(db.QueryError):
         await db.run_query("SELECT email FROM app.users")
+
+
+@pytest.mark.parametrize("header, value, expected", [
+    (None, None, "10.0.0.5"),                                  # not configured: the connecting address
+    ("CloudFront-Viewer-Address", "203.0.113.9:46532", "203.0.113.9"),
+    ("CloudFront-Viewer-Address", "2001:db8::7:46532", "2001:db8::7"),
+    ("CloudFront-Viewer-Address", None, "10.0.0.5"),           # configured but absent: fall back
+])
+def test_client_ip(monkeypatch, header, value, expected):
+    monkeypatch.setattr(accounts, "CLIENT_IP_HEADER", header or "")
+    headers = {header: value} if header and value else {}
+    request = NS(headers=headers, client=NS(host="10.0.0.5"))
+    assert accounts._client_ip(request) == expected

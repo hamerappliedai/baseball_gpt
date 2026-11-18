@@ -6,7 +6,7 @@ RELEASE ?= 2025
 PIPELINE = cd pipeline && uv run bgpt-pipeline
 DBT = cd transform && uv run dbt
 
-.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed migrate docs test backend-test search-eval user-add user-list
+.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed migrate docs test backend-test search-eval user-add user-list image-build image-run
 
 db-up:            ## start Postgres + pgvector (host port 5432), wait until healthy, apply roles
 	docker compose up -d --wait
@@ -67,3 +67,10 @@ user-add:         ## create an Ask AI account: make user-add EMAIL=... NAME="...
 
 user-list:        ## list Ask AI accounts with today's token use
 	cd backend && .venv/bin/python manage.py user-list
+
+image-build:      ## build the production images (deploy/app.Dockerfile, deploy/ops.Dockerfile)
+	docker build -f deploy/app.Dockerfile -t baseball-gpt-app .
+	docker build -f deploy/ops.Dockerfile -t baseball-gpt-ops .
+
+image-run:        ## run the production app image against the local database on :8080
+	docker compose --profile image up app

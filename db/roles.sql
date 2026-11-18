@@ -21,8 +21,9 @@ ALTER ROLE bgpt_reader SET idle_in_transaction_session_timeout = '10s';
 ALTER ROLE bgpt_reader SET search_path = marts;
 
 -- No temp tables for anyone but the owner (PUBLIC has TEMP by default).
-REVOKE TEMPORARY ON DATABASE baseball FROM PUBLIC;
-GRANT CONNECT ON DATABASE baseball TO bgpt_reader;
+-- :"DBNAME" is psql's name for the database it's connected to.
+REVOKE TEMPORARY ON DATABASE :"DBNAME" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"DBNAME" TO bgpt_reader;
 
 -- marts and vectors only: raw and staging stay invisible.
 REVOKE ALL ON SCHEMA raw, staging FROM bgpt_reader;
@@ -54,7 +55,7 @@ ALTER ROLE bgpt_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
 ALTER ROLE bgpt_app SET statement_timeout = '5s';
 ALTER ROLE bgpt_app SET idle_in_transaction_session_timeout = '10s';
 ALTER ROLE bgpt_app SET search_path = app;
-GRANT CONNECT ON DATABASE baseball TO bgpt_app;
+GRANT CONNECT ON DATABASE :"DBNAME" TO bgpt_app;
 
 CREATE SCHEMA IF NOT EXISTS app;
 REVOKE ALL ON SCHEMA app FROM PUBLIC, bgpt_reader;

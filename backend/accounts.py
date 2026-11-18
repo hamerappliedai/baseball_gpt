@@ -47,6 +47,11 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() not in ("0", "fa
 LOGIN_WINDOW_MINUTES = 15
 LOGIN_MAX_FAILURES_EMAIL = int(os.environ.get("LOGIN_MAX_FAILURES_EMAIL", "5"))
 LOGIN_MAX_FAILURES_IP = int(os.environ.get("LOGIN_MAX_FAILURES_IP", "20"))
+# Behind CloudFront the connecting address is a CloudFront server, so on AWS this
+# is set to CloudFront-Viewer-Address ("ip:port"), which CloudFront fills in with
+# the visitor's address. Only trust it when nothing but CloudFront can reach the
+# app (see docs/deploy-plan.md). Unset: use the connecting address.
+CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip()
 
 # Ask AI allowance per user. Tokens are counted as the API reports them, summed
 # over a question's tool-use rounds, with cache reads at a tenth (they cost a
@@ -231,8 +236,9 @@ class LoginRequest(BaseModel):
 
 
 def _client_ip(request: Request) -> str:
-    # Behind a load balancer, run uvicorn with --proxy-headers so this is the
-    # real client address (see README, Deployment).
+    if CLIENT_IP_HEADER and (value := request.headers.get(CLIENT_IP_HEADER)):
+        host = value.strip().rsplit(":", 1)[0] if ":" in value else value.strip()
+        return host.strip("[]")[:64] or "unknown"
     return request.client.host if request.client else "unknown"
 
 

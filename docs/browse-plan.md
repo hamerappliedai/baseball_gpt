@@ -161,7 +161,7 @@ In v1 the search is SQL only. Each match gets a rank, best first:
 Ties break on `games_played DESC`, so the famous player comes first.
 
 To keep this fast, a `pg_trgm` GIN index on `players.full_name` would be created by a
-dbt post-hook. The extension goes in `db/init`. At 24k rows, plain `ILIKE` is probably
+dbt post-hook. The extension goes in `db/bootstrap.sql`. At 24k rows, plain `ILIKE` is probably
 fast enough, so we measure first.
 
 Phase 4 keeps the same contract but swaps the implementation. See Search below.
@@ -334,7 +334,7 @@ without a login.
 
 ## AWS deployment (milestone 6, outline)
 
-To be detailed when we get there:
+The detailed plan is in [deploy-plan.md](deploy-plan.md). The original outline:
 
 - **Database:** RDS for PostgreSQL 17 with the `pgvector` extension. RDS supports it, but
   `db/init` won't run there, so its SQL moves into a bootstrap script and the
@@ -346,8 +346,9 @@ To be detailed when we get there:
   are injected as env vars, not `.env` files.
 - **Data load:** the pipeline and dbt run as a one-off task, or from a machine with
   access, against RDS. After that, apply roles and migrations.
-- **Client addresses:** run uvicorn with `--proxy-headers --forwarded-allow-ips` set to the
-  ALB's range, so the per-address sign-in limit sees real clients, not the load balancer.
+- **Client addresses:** the app reads the visitor's address from CloudFront's
+  `CloudFront-Viewer-Address` header (`CLIENT_IP_HEADER`), so the per-address sign-in
+  limit sees real clients; see deploy-plan.md.
 - **Accounts:** `bgpt-pipeline migrate` runs on every deploy before the new tasks start;
   admins create accounts with `manage.py` from a one-off task.
 - **CDN:** CloudFront in front, so the cached browse responses rarely reach the app.
