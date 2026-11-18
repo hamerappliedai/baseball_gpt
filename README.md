@@ -21,13 +21,15 @@ baseball_gpt/
 ├── backend/            FastAPI app: browse API (browse.py, stats.py, players.py, standings.py), Claude tool-use loop (agent.py),
 │                       database access (db.py), schema prompt (schema.py), accounts and limits (accounts.py,
 │                       appdb.py, manage.py)
-├── frontend/           Vue 3 + Vite app: views/ (Leaders, Player, Standings, Ask, Login), components/ (PlayerSearch, StatTable)
+├── frontend/           Vue 3 + Vite app: views/ (Leaders, Player, Standings, Ask, Login), components/ (PlayerSearch, StatTable,
+│                       DataNotice)
 ├── pipeline/           Downloads, verifies and loads the Lahman database (see pipeline/README.md)
 ├── transform/          dbt project: raw → staging → documented marts (see transform/README.md)
-├── db/init/            Postgres init: pgvector extension and warehouse schemas
+├── db/bootstrap.sql    Extensions and warehouse schemas (docker compose runs it on a new volume; the ops image on AWS)
 ├── db/roles.sql        The backend's roles: bgpt_reader (warehouse, read-only) and bgpt_app (accounts)
 ├── db/migrations/      Numbered SQL migrations for the app schema (accounts, sessions, usage)
-└── docker-compose.yml  Postgres 17 + pgvector on host port 5432
+├── deploy/            Production images: app.Dockerfile (web app) and ops.Dockerfile + ops.sh (database jobs)
+└── docker-compose.yml  Postgres 17 + pgvector on host port 5432 (plus the images under the `image` profile)
 ```
 
 ## Data
@@ -287,6 +289,33 @@ Other details:
 - The conversation lives in the browser and is sent with every request. Nothing is
   stored on the server.
 
+## Production images
+
+Two images, built from the repo root, for the AWS deployment (`docs/deploy-plan.md`):
+
+```bash
+make image-build
+```
+
+- **`baseball-gpt-app`** (`deploy/app.Dockerfile`): the built Vue app, the FastAPI
+  backend and the search embedding model, baked in so it never downloads at start-up.
+  It uses CPU-only `torch`, runs as a non-root user, and nothing secret is baked in;
+  everything comes from the environment. About 1.3 GB.
+- **`baseball-gpt-ops`** (`deploy/ops.Dockerfile`): database jobs against any Postgres
+  given `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` as the owner. `first-load` turns an
+  empty database into a ready one: extensions, roles, migrations, then download and load
+  Lahman, dbt and the embeddings. `refresh-data` loads a new Lahman release. Run it with
+  no command to list the jobs. About 1.7 GB.
+
+To try the production app image on your machine, against your local database:
+
+```bash
+make image-run
+```
+
+Then open http://localhost:8080. It reads `backend/.env` and the root `.env` the same
+way as the dev server.
+
 ## Configuration
 
 Set these in the environment or in `backend/.env`:
@@ -307,6 +336,7 @@ Set these in the environment or in `backend/.env`:
 | `CHAT_MAX_TURNS` | `20` | questions per conversation |
 | `LOGIN_MAX_FAILURES_EMAIL` | `5` | failed sign-ins per email per 15 minutes |
 | `LOGIN_MAX_FAILURES_IP` | `20` | failed sign-ins per client address per 15 minutes |
+| `CLIENT_IP_HEADER` | unset | header holding the visitor's address; `CloudFront-Viewer-Address` on AWS. Leave unset unless only a trusted proxy can reach the app |
 | `EMBED_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | must match the model `make embed` used (also read by the pipeline) |
 | `SEARCH_VECTOR_MIN` | `0.65` | minimum cosine similarity for embedding-only search hits |
 | `SEARCH_FUZZY_MIN` | `0.45` | minimum trigram word similarity for spelling-only hits |

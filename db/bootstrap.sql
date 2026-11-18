@@ -1,4 +1,7 @@
--- Runs once, when the Postgres volume is first created.
+-- Extensions and warehouse schemas. Idempotent.
+--   local:  docker compose runs it once, when the Postgres volume is created
+--   AWS:    the ops image runs it first (`bootstrap`), since RDS has no init scripts
+-- Needs a superuser locally, or the RDS master user (rds_superuser) on AWS.
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- spelling-tolerant player search (phase 4)
 
