@@ -41,6 +41,16 @@ export async function streamChat(messages, onEvent, signal) {
   }
 }
 
+let metaPromise = null
+/** /api/meta (seasons, stats, leagues), fetched once per page load and shared. */
+export function getMeta() {
+  metaPromise ??= getJSON('/api/meta').catch((e) => {
+    metaPromise = null // let the next caller retry
+    throw e
+  })
+  return metaPromise
+}
+
 /** GET a browse endpoint; drops empty params. Throws with the API's message on errors. */
 export async function getJSON(path, params = {}, signal) {
   const qs = new URLSearchParams(

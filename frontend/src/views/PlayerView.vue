@@ -5,6 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { getJSON } from '../api'
 import { formatDate } from '../format'
 import StatTable from '../components/StatTable.vue'
+import DataNotice from '../components/DataNotice.vue'
 
 const route = useRoute()
 const data = ref(null)
@@ -130,6 +131,7 @@ const bbrefUrl = computed(() => {
             {{ p.first_season === p.last_season ? p.first_season : `${p.first_season}–${p.last_season}` }}
             · {{ p.primary_position || '—' }} · {{ p.teams }}
           </p>
+          <DataNotice :season="p.last_season" />
           <div class="badges">
             <span v-if="p.is_hall_of_famer" class="tag hof">
               Hall of Fame {{ p.hof_induction_year }}<template v-if="p.hof_voted_by"> · {{ p.hof_voted_by }}</template>

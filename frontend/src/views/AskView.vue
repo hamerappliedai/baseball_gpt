@@ -5,6 +5,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { streamChat } from '../api'
 import { auth, refreshUser, signedOut } from '../auth'
+import DataNotice from '../components/DataNotice.vue'
 
 // [{ role, content, error?, queries?: [{ id, purpose, sql, status, rows?, truncated?, error? }] }]
 const messages = ref([])
@@ -150,6 +151,7 @@ function onKeydown(e) {
     <section v-else ref="logEl" class="log">
       <div v-if="!messages.length" class="empty">
         <p>Ask about 150 years of major league baseball, Negro Leagues included.<br />Answers come from SQL over the SABR Lahman database.</p>
+        <DataNotice />
         <div class="examples">
           <button v-for="ex in examples" :key="ex" class="example" @click="ask(ex)">{{ ex }}</button>
         </div>
