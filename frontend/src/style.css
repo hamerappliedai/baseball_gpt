@@ -369,3 +369,16 @@ a.button {
   text-decoration: none;
 }
 .allowance { margin: -4px 0 0; font-size: 0.8em; text-align: right; }
+
+/* "Stats run through ..." notice */
+.data-notice {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.85em;
+  color: #6a4b1f;
+  background: #fdf6e7;
+  border: 1px solid #f0dfb8;
+  border-radius: 8px;
+  align-self: flex-start;
+}
+.empty .data-notice { align-self: center; display: inline-block; margin-bottom: 12px; }

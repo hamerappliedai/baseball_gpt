@@ -3,7 +3,8 @@
 // can be shared as a link; the route is the single source of truth.
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { getJSON } from '../api'
+import { getJSON, getMeta } from '../api'
+import DataNotice from '../components/DataNotice.vue'
 import { formatValue, isNumeric } from '../format'
 
 const route = useRoute()
@@ -118,7 +119,7 @@ async function loadMore() {
 
 onMounted(async () => {
   try {
-    meta.value = await getJSON('/api/meta')
+    meta.value = await getMeta()
   } catch (e) {
     error.value = e.message
     return
@@ -150,6 +151,7 @@ const title = computed(() => {
       <h1>Leaders</h1>
       <span class="muted">Straight from the database, no AI</span>
     </div>
+    <DataNotice />
 
     <p v-if="!meta && error" class="error">Couldn't load: {{ error }}</p>
 

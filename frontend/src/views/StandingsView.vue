@@ -3,7 +3,8 @@
 // GET /api/standings/{season}. No AI involved.
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getJSON } from '../api'
+import { getJSON, getMeta } from '../api'
+import DataNotice from '../components/DataNotice.vue'
 import { formatValue } from '../format'
 
 const route = useRoute()
@@ -17,7 +18,7 @@ async function load(param) {
   error.value = ''
   loading.value = true
   try {
-    if (!seasons.value) seasons.value = (await getJSON('/api/meta')).seasons
+    if (!seasons.value) seasons.value = (await getMeta()).seasons
     // /standings with no year shows the latest season.
     if (!param) {
       router.replace(`/standings/${seasons.value.last}`)
@@ -75,6 +76,7 @@ const champion = computed(() => data.value?.champion)
       </div>
     </div>
 
+    <DataNotice />
     <p v-if="error" class="error">{{ error }}</p>
     <p v-else-if="loading && !data" class="muted">Loading…</p>
 
