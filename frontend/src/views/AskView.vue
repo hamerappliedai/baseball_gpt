@@ -41,7 +41,11 @@ watch(
   },
 )
 
-const render = (text) => DOMPurify.sanitize(marked.parse(text))
+// Tables go in a scroll box so wide results scroll sideways instead of wrapping.
+const render = (text) =>
+  DOMPurify.sanitize(marked.parse(text))
+    .replaceAll('<table>', '<div class="table-scroll"><table>')
+    .replaceAll('</table>', '</table></div>')
 const fmt = (n) => Number(n).toLocaleString()
 const usedPct = () => {
   const a = auth.allowance
