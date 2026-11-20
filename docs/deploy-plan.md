@@ -1,10 +1,16 @@
 # Plan: deploy to AWS (milestone 6)
 
-Status: draft for review. Decisions (2026-11-17):
+Status: steps 1 and 2 done. Decisions (2026-11-17, region changed 2026-11-20):
 
 - **Infrastructure as code:** Terraform.
-- **Region:** `us-west-2` (Oregon). CloudFront's certificate must live in `us-east-1`;
-  that is the only resource outside Oregon.
+- **Region:** `us-east-2` (Ohio). The organization's region policy (an SCP on the
+  root) allows workloads only there; `us-west-2` was the first choice but the policy
+  blocks EC2, RDS, ECS and S3 in it. CloudFront's certificate and WAF must live in
+  `us-east-1`, which the policy allows for those global services.
+- **Account:** a dedicated member account, `baseball-gpt`, in the HamerAppliedAI
+  organization. The CLI reaches it through the profile `baseball-gpt`, which steps
+  from your `aws login` session (Management account) into the account's
+  `OrganizationAccountAccessRole`.
 - **Domain:** `baseballgpt.hamerappliedai.com`. `hamerappliedai.com` is registered at
   GoDaddy and its DNS stays there; you add the records by hand (Terraform prints them).
 - **Shape:** production-style. Two app containers in two availability zones, private
@@ -20,7 +26,7 @@ until you approve `terraform apply`.
                         │  /assets/*, /api/meta, /api/leaderboard, ... cached
                         │  /api/auth/*, /api/chat: not cached, cookies forwarded
                         ▼
-                    ALB (HTTPS, cert in us-west-2; only accepts CloudFront)
+                    ALB (HTTPS, cert in us-east-2; only accepts CloudFront)
                         │
               ┌─────────┴─────────┐        private app subnets (2 AZs)
          ECS Fargate task    ECS Fargate task   FastAPI + built Vue app + embedding model
@@ -139,7 +145,7 @@ takes a few minutes after the records are saved.
   can only be assumed from this repo's `main` branch, which matters because the repo is
   public.
 
-## Estimated monthly cost (us-west-2)
+## Estimated monthly cost (us-east-2)
 
 Rough list prices, before free tier, not counting Claude API usage:
 
@@ -170,24 +176,50 @@ All of these are variables.
      the local database;
    - `ops first-load` tested against an empty Postgres container, standing in for a new
      RDS database.
-2. **Terraform foundation:** state bucket, network, ECR, Secrets Manager, RDS. Apply; run
-   the one-off task to load the data.
+2. **Terraform foundation (done):** state bucket, network, ECR, Secrets Manager, RDS, the
+   ECS cluster and the ops task. Applied in `us-east-2`; images pushed; `first-load` ran
+   on Fargate (139 dbt tests pass, 46,487 aliases embedded). See "Running Terraform"
+   below.
 3. **App and edge:** ECS service, ALB, certificates, CloudFront, WAF. Apply; add the DNS
    records; check the site end to end.
 4. **Monitoring:** alarms and budget.
 5. **CI/CD:** the GitHub Actions deploy on merge to `main`.
 
+## Running Terraform
+
+Terraform's AWS provider can't read `aws login` sessions yet, so every Terraform command
+goes through `deploy/tf.sh`. It asks the AWS CLI for short-lived keys for the
+`baseball-gpt` profile and passes them to Terraform's environment only. Both stacks also
+set `allowed_account_ids`, so Terraform refuses to touch any other account.
+
+The account ID is kept out of this public repo: it lives in the git-ignored
+`terraform.tfvars` files and `infra/backend.hcl` (see the `.example` files).
+
+```bash
+aws login --region us-east-2 --remote        # sign in to the Management account
+
+# once: the state bucket
+deploy/tf.sh -chdir=infra/bootstrap init
+deploy/tf.sh -chdir=infra/bootstrap apply
+deploy/tf.sh -chdir=infra/bootstrap output -raw backend_config > infra/backend.hcl
+
+# the main stack
+deploy/tf.sh -chdir=infra init -backend-config=backend.hcl
+deploy/tf.sh -chdir=infra plan -out=infra.tfplan
+deploy/tf.sh -chdir=infra apply infra.tfplan
+
+# images and the first data load
+make aws-push
+make aws-task CMD=first-load
+```
+
 ## What I need from you
 
-- **AWS account access on this machine:**
-  - Install the AWS CLI and Terraform:
-
-    ```bash
-    brew install awscli terraform
-    ```
-
-  - Then sign in yourself with `aws configure sso`, or an access key for an admin user.
-  - I won't handle AWS credentials.
+- **AWS access on this machine (done):**
+  - the AWS CLI and Terraform (`brew install awscli` and
+    `brew install hashicorp/tap/terraform`);
+  - `aws login`, plus the `baseball-gpt` profile in `~/.aws/config`;
+  - I don't handle AWS credentials.
 - **DNS:** access to GoDaddy's DNS manager for `hamerappliedai.com`, to add four CNAME
   records during step 3.
 - **Alarm email address,** and a monthly AWS budget figure for the alert.

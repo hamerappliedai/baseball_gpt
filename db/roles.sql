@@ -11,7 +11,10 @@
 SELECT 'CREATE ROLE bgpt_reader'
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bgpt_reader') \gexec
 
-ALTER ROLE bgpt_reader WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+-- No NOSUPERUSER here: on RDS only a superuser may name that attribute, and
+-- the master user isn't one. New roles are never superusers unless a superuser
+-- makes them so.
+ALTER ROLE bgpt_reader WITH LOGIN NOCREATEDB NOCREATEROLE NOINHERIT
     CONNECTION LIMIT 20 PASSWORD :'reader_password';
 
 -- Defaults for the role's sessions (defence in depth, not the boundary).
@@ -50,7 +53,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA vectors
 SELECT 'CREATE ROLE bgpt_app'
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bgpt_app') \gexec
 
-ALTER ROLE bgpt_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+ALTER ROLE bgpt_app WITH LOGIN NOCREATEDB NOCREATEROLE NOINHERIT
     CONNECTION LIMIT 20 PASSWORD :'app_password';
 ALTER ROLE bgpt_app SET statement_timeout = '5s';
 ALTER ROLE bgpt_app SET idle_in_transaction_session_timeout = '10s';
