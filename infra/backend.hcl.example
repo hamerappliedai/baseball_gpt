@@ -1,0 +1,7 @@
+# infra/backend.hcl is git-ignored (it names the AWS account). Create it with:
+#   deploy/tf.sh -chdir=infra/bootstrap output -raw backend_config > infra/backend.hcl
+bucket       = "baseball-gpt-tfstate-<account-id>"
+key          = "infra/terraform.tfstate"
+region       = "us-east-2"
+encrypt      = true
+use_lockfile = true

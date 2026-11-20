@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (git-ignored). aws_account_id is required; the rest
+# change defaults in variables.tf.
+
+aws_account_id = "<baseball-gpt account ID>"
+
+# single_nat_gateway = true            # saves about $35 a month
+# db_instance_class  = "db.t4g.small"
+# db_multi_az        = true
