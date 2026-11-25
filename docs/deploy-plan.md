@@ -1,6 +1,6 @@
 # Plan: deploy to AWS (milestone 6)
 
-Status: steps 1 and 2 done. Decisions (2026-11-17, region changed 2026-11-20):
+Status: steps 1–3 done; the site is live. Decisions (2026-11-17, region changed 2026-11-20):
 
 - **Infrastructure as code:** Terraform.
 - **Region:** `us-east-2` (Ohio). The organization's region policy (an SCP on the
@@ -12,7 +12,8 @@ Status: steps 1 and 2 done. Decisions (2026-11-17, region changed 2026-11-20):
   from your `aws login` session (Management account) into the account's
   `OrganizationAccountAccessRole`.
 - **Domain:** `baseballgpt.hamerappliedai.com`. `hamerappliedai.com` is registered at
-  GoDaddy and its DNS stays there; you add the records by hand (Terraform prints them).
+  Squarespace and its DNS stays there; you add the records by hand (Terraform prints
+  them).
 - **Shape:** production-style. Two app containers in two availability zones, private
   subnets, a multi-AZ database. The estimated cost is accepted.
 
@@ -115,12 +116,12 @@ until you approve `terraform apply`.
   locking. It's applied once.
 - `infra/`: everything else, in a few files (network, database, app, edge, monitoring)
   with a `terraform.tfvars` for the domain, alarm email and sizes.
-- Outputs: the DNS records to add at GoDaddy and the commands for the one-off tasks.
+- Outputs: the DNS records to add at Squarespace and the commands for the one-off tasks.
 
-### DNS at GoDaddy
+### DNS at Squarespace
 
 Only the `baseballgpt` subdomain changes; `hamerappliedai.com` itself and its other
-records are untouched. You add, in GoDaddy's DNS manager for `hamerappliedai.com`:
+records are untouched. You add, in Squarespace's DNS settings (Domains → DNS → Custom records) for `hamerappliedai.com`:
 
 1. **Certificate validation:** two CNAME records, one for each certificate. One is the
    CloudFront certificate for `baseballgpt.hamerappliedai.com`. The other is the load
@@ -132,7 +133,7 @@ records are untouched. You add, in GoDaddy's DNS manager for `hamerappliedai.com
    - a CNAME `baseballgpt` → the CloudFront address (`dxxxx.cloudfront.net`);
    - a CNAME `origin.baseballgpt` → the load balancer's address.
 
-GoDaddy allows a CNAME on a subdomain, so no DNS move is needed. Validation usually
+Squarespace allows a CNAME on a subdomain, so no DNS move is needed. Validation usually
 takes a few minutes after the records are saved.
 
 ### Continuous deployment (last step)
@@ -180,8 +181,11 @@ All of these are variables.
    ECS cluster and the ops task. Applied in `us-east-2`; images pushed; `first-load` ran
    on Fargate (139 dbt tests pass, 46,487 aliases embedded). See "Running Terraform"
    below.
-3. **App and edge:** ECS service, ALB, certificates, CloudFront, WAF. Apply; add the DNS
-   records; check the site end to end.
+3. **App and edge (done):** ECS service, ALB, certificates, CloudFront, WAF. Applied in
+   two passes around the Squarespace records (see "Step 3: going live"). Live at
+   https://baseballgpt.hamerappliedai.com: HTTPS, browse data, search, CloudFront
+   caching, security headers, 401 for Ask AI when signed out, and no direct access to
+   the load balancer, all checked from the internet.
 4. **Monitoring:** alarms and budget.
 5. **CI/CD:** the GitHub Actions deploy on merge to `main`.
 
@@ -213,6 +217,42 @@ make aws-push
 make aws-task CMD=first-load
 ```
 
+## Step 3: going live
+
+The certificates must be validated through Squarespace before the load balancer and
+CloudFront can use them, so step 3 is applied in two passes.
+
+1. **The Anthropic key.** The app tasks can't start until the secret has a value. Put it
+   in without it appearing on screen or in your shell history (zsh):
+
+   ```bash
+   read -rs "KEY?Anthropic API key: " && printf %s "$KEY" | aws secretsmanager put-secret-value --profile baseball-gpt --secret-id baseball-gpt/anthropic-api-key --secret-string file:///dev/stdin --query VersionId && unset KEY
+   ```
+
+2. **The certificates only:**
+
+   ```bash
+   deploy/tf.sh -chdir=infra apply -target=aws_acm_certificate.site -target=aws_acm_certificate.origin
+   deploy/tf.sh -chdir=infra output dns_records_validation
+   ```
+
+3. **Squarespace, validation records:** add the two CNAMEs it prints (Host and Data exactly
+   as shown). Leave them in place; ACM uses them to renew.
+4. **Everything else:** `deploy/tf.sh -chdir=infra apply`. It waits for ACM to see the
+   records, then creates the load balancer, the app service, WAF and CloudFront
+   (CloudFront takes 5–15 minutes).
+5. **Squarespace, site records:** `deploy/tf.sh -chdir=infra output dns_records_site` prints
+   two more CNAMEs: `baseballgpt` → CloudFront and `origin.baseballgpt` → the load
+   balancer.
+6. **Your account:** sign-up is closed, so create your Ask AI account in the production
+   database from a shell in a running app task (ECS Exec; needs the Session Manager
+   plugin, `brew install --cask session-manager-plugin`):
+
+   ```bash
+   make aws-shell
+   python manage.py user-add --email you@example.com --name "Your Name" --admin
+   ```
+
 ## What I need from you
 
 - **AWS access on this machine (done):**
@@ -220,7 +260,7 @@ make aws-task CMD=first-load
     `brew install hashicorp/tap/terraform`);
   - `aws login`, plus the `baseball-gpt` profile in `~/.aws/config`;
   - I don't handle AWS credentials.
-- **DNS:** access to GoDaddy's DNS manager for `hamerappliedai.com`, to add four CNAME
+- **DNS:** access to Squarespace's DNS settings (Domains → DNS → Custom records) for `hamerappliedai.com`, to add four CNAME
   records during step 3.
 - **Alarm email address,** and a monthly AWS budget figure for the alert.
 - **Anthropic key:** paste it into Secrets Manager yourself when step 2 asks. Consider a

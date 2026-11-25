@@ -29,6 +29,16 @@ provider "aws" {
   }
 }
 
+# CloudFront's certificate and web ACL must live in us-east-1.
+provider "aws" {
+  alias               = "us_east_1"
+  region              = "us-east-1"
+  allowed_account_ids = [var.aws_account_id]
+  default_tags {
+    tags = { Project = var.project, ManagedBy = "terraform" }
+  }
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_availability_zones" "available" {
   state = "available"

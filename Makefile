@@ -6,7 +6,7 @@ RELEASE ?= 2025
 PIPELINE = cd pipeline && uv run bgpt-pipeline
 DBT = cd transform && uv run dbt
 
-.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed migrate docs test backend-test search-eval user-add user-list image-build image-run aws-push aws-task
+.PHONY: db-up db-roles db-down db-shell build ingest fetch verify load transform embed migrate docs test backend-test search-eval user-add user-list image-build image-run aws-push aws-task aws-shell
 
 db-up:            ## start Postgres + pgvector (host port 5432), wait until healthy, apply roles
 	docker compose up -d --wait
@@ -81,3 +81,6 @@ aws-push:         ## build the images for arm64 and push them to ECR: make aws-p
 aws-task:         ## run the ops image once on ECS: make aws-task CMD=first-load (see deploy/ops.sh)
 	@test -n "$(CMD)" || (echo 'usage: make aws-task CMD=first-load|migrate|refresh-data|...'; exit 1)
 	deploy/aws-task.sh $(CMD)
+
+aws-shell:        ## a shell in a running app task (ECS Exec), e.g. for manage.py user-add
+	deploy/aws-shell.sh
