@@ -306,7 +306,11 @@ table.data tfoot td { font-weight: 700; border-top: 2px solid #e3e5e8; backgroun
 .standings .league.stale { opacity: 0.5; }
 .standings h2 { font-size: 1.05rem; margin: 8px 0 0; }
 .standings h3 { font-size: 0.9rem; margin: 0 0 4px; color: #57606a; }
-.divisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+/* A division table needs up to ~640px (long team name plus badges). Divisions sit
+   side by side only when each gets 660px, so the shell widens for this page;
+   narrower windows show one column instead of clipping the tables. */
+.shell:has(.standings) { max-width: 1400px; }
+.divisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 660px), 1fr)); gap: 12px; }
 .standings table.data th, .standings table.data td { padding: 5px 8px; }
 .division { min-width: 0; }
 table.data td.pos { color: #1a7f37; }
