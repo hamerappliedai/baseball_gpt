@@ -149,3 +149,17 @@ variable "dns_zone" {
   type        = string
   default     = "hamerappliedai.com"
 }
+
+# --- monitoring (step 4) ---
+
+variable "alarm_email" {
+  description = "Where alarms and budget alerts go (set in terraform.tfvars; AWS asks this address to confirm once)"
+  type        = string
+  default     = null
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly AWS spend for the budget alerts (80% and 100% actual, 100% forecast)"
+  type        = number
+  default     = 250
+}

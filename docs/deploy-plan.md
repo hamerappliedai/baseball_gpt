@@ -1,6 +1,6 @@
 # Plan: deploy to AWS (milestone 6)
 
-Status: steps 1–3 done; the site is live. Decisions (2026-11-17, region changed 2026-11-20):
+Status: steps 1–4 done; the site is live. Decisions (2026-11-17, region changed 2026-11-20):
 
 - **Infrastructure as code:** Terraform.
 - **Region:** `us-east-2` (Ohio). The organization's region policy (an SCP on the
@@ -186,7 +186,12 @@ All of these are variables.
    https://baseballgpt.hamerappliedai.com: HTTPS, browse data, search, CloudFront
    caching, security headers, 401 for Ask AI when signed out, and no direct access to
    the load balancer, all checked from the internet.
-4. **Monitoring:** alarms and budget.
+4. **Monitoring (done):** 10 CloudWatch alarms (site down, unhealthy tasks, app and
+   load balancer 5xx, app tracebacks, app CPU and memory, database CPU, storage and
+   memory) emailed through SNS, with recovery emails too; an AWS Budgets alert at 80%
+   and 100% of actual and 100% of forecast monthly spend. The alarm email and budget are
+   in `terraform.tfvars`. No CloudFront alarm: the region policy blocks CloudWatch in
+   us-east-1, and the load balancer alarms catch the same failures.
 5. **CI/CD:** the GitHub Actions deploy on merge to `main`.
 
 ## Running Terraform

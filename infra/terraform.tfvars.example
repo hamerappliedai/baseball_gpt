@@ -6,3 +6,7 @@ aws_account_id = "<baseball-gpt account ID>"
 # single_nat_gateway = true            # saves about $35 a month
 # db_instance_class  = "db.t4g.small"
 # db_multi_az        = true
+
+# Step 4: where alarms and budget alerts go, and the monthly budget.
+# alarm_email        = "you@example.com"
+# monthly_budget_usd = 250
